@@ -36,8 +36,8 @@ fi
 
 # NDK llvm toolchain
 
-HOST_TAG="linux-x86_64" # current platform, set as `ls $ANDROID_NDK/toolchains/llvm/prebuilt/`
-TOOLCHAIN=$ANDROID_NDK/toolchains/llvm/prebuilt/$HOST_TAG
+HOST_TAG="$(ls "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/")"
+TOOLCHAIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/$HOST_TAG
 
 function build {
   ANDROID_ABI=$1
