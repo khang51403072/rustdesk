@@ -54,10 +54,15 @@ pub const DEVICE_CONFIG_FILE_NAME: &str = "drx-defaults.json";
 /// `KEYS_LOCAL_SETTINGS`, `KEYS_SETTINGS`, `KEYS_DISPLAY_SETTINGS` and
 /// `KEYS_BUILDIN_SETTINGS` after normalising `_` to `-`.
 ///
-/// The current set biases the client toward direct peer-to-peer connections.
+/// The current set biases the client toward direct peer-to-peer connections and
+/// starts the app in dark mode, which is what the DrxBrand palette
+/// (`flutter/lib/drx_brand.dart`) is designed around. `theme` is a
+/// `KEYS_LOCAL_SETTINGS` key, so it lands in DEFAULT_LOCAL_SETTINGS and the user
+/// can still switch to light or system in Settings.
 /// Rationale for each key is in CUSTOM_CONFIG.md.
 pub const BUILTIN_DEFAULTS: &str = r#"{
   "default-settings": {
+    "theme": "dark",
     "enable-udp-punch": "Y",
     "enable-ipv6-punch": "Y",
     "allow-websocket": "N",

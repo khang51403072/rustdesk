@@ -4,9 +4,10 @@
 > Mọi thứ nói ở đây là phần chúng ta thêm vào. Khi merge upstream, đây là danh
 > sách những chỗ cần để ý.
 >
-> Doc gồm hai phần: **mục 1–9** là cơ chế đặt giá trị mặc định, **mục 10** là
-> phần rebrand phía Android. Hai thứ khác chủ đề nhưng cùng bản chất — code
-> riêng nằm rải trong file của upstream — nên gom chung một chỗ để rà.
+> Doc gồm ba phần: **mục 1–9** là cơ chế đặt giá trị mặc định, **mục 10** là
+> rebrand phía Android, **mục 11** là theme thương hiệu phía Flutter. Ba thứ
+> khác chủ đề nhưng cùng bản chất — code riêng nằm rải trong file của upstream —
+> nên gom chung một chỗ để rà.
 
 ## 1. Tóm tắt trong 30 giây
 
@@ -38,6 +39,9 @@ Settings.
 | `flutter/android/.../MainService.kt` | sửa 4 chỗ | Rebrand thông báo foreground và notification channel — xem mục 10. |
 | `flutter/android/.../FloatingWindowService.kt` | sửa 1 dòng | Rebrand menu cửa sổ nổi — xem mục 10. |
 | `flutter/android/.../BootReceiver.kt` | sửa 1 dòng | Rebrand toast khi khởi động — xem mục 10. |
+| `flutter/lib/drx_brand.dart` | **mới** | Bảng màu thương hiệu. Upstream không có file tương ứng — xem mục 11. |
+| `flutter/lib/common.dart` | sửa ~12 dòng | `MyTheme` và `ColorThemeExtension` trỏ vào `DrxBrand` — xem mục 11. |
+| `flutter/lib/mobile/pages/server_page.dart` | sửa 1 chỗ | Gradient header hộp thoại kết nối — xem mục 11.4. |
 | `flutter/android/.../res/values/strings.xml` | sửa 1 dòng | Rebrand mô tả accessibility service — xem mục 10. |
 
 Ngoài ra `drx-defaults.json.example` ở thư mục gốc là file mẫu cho mục 6, không
@@ -366,7 +370,98 @@ Build lại APK, bật dịch vụ trên emulator:
 | Tên notification channel (`dumpsys notification`) | `RustDesk Service` | `Desk Remote X Service` |
 | Id notification channel | `RustDesk` | `RustDesk` (giữ nguyên, đúng ý) |
 
-## 11. Khi merge upstream
+## 11. Theme thương hiệu
+
+### 11.1 Vấn đề
+
+Upstream để bảng màu thương hiệu dưới dạng hằng số literal nằm **giữa class
+`MyTheme`** trong `flutter/lib/common.dart` — một file upstream sửa rất thường
+xuyên. Sửa màu tại chỗ đồng nghĩa với conflict ngay giữa `MyTheme` mỗi lần
+merge.
+
+### 11.2 Cách làm
+
+Toàn bộ palette dời sang **`flutter/lib/drx_brand.dart`** (file mới, upstream
+không có). `MyTheme` chỉ còn *trỏ* vào đó. Nhờ vậy diff so với upstream chỉ là
+vài dòng thay thế một-đổi-một, mỗi dòng có comment ghi giá trị gốc.
+
+**Muốn đổi thương hiệu: sửa `drx_brand.dart`, không sửa gì khác.**
+
+### 11.3 Bảng màu
+
+| Hằng số | Giá trị | Upstream cũ | Dùng ở đâu |
+| --- | --- | --- | --- |
+| `primary` | `#2F9BFF` | `#0071FF` | `MyTheme.accent`, `MyTheme.button`, `colorScheme.primary/secondary` |
+| `primaryDeep` | `#0B5FD0` | — | đầu gradient, trạng thái nhấn |
+| `primaryLight` | `#5FB4FF` | `#00B6F0` | `MyTheme.idColor`, màu hyperlink |
+| `darkBg` | `#12161C` | `#18191E` | nền trang, nền dialog |
+| `darkSurface` | `#1A2029` | `#24252B` | card, ô nhập liệu |
+| `darkSurfaceAlt` | `#222B36` | `#24252B` / `#121212` | menu, popup, outlined button |
+| `darkHover` | `#263140` | `rgb(45,46,53)` | hover / pressed |
+| `darkSelected` | `#1B3350` | `#3F3F3F` | `ColorThemeExtension.dark.highlight` |
+| `darkBorder` | `#2C3543` | `#555555` | `ColorThemeExtension.dark.border` |
+| `lightSurface` | `#EFF2F7` | `#EFEFF2` | `MyTheme.grayBg` |
+| `lightBorder` | `#CFD6E0` | `#CCCCCC` | `MyTheme.border` |
+| `muted` | `#94A3B3` | `rgb(148,148,148)` | `MyTheme.darkGray` |
+
+Nhánh xám của upstream là xám trung tính; nhánh của ta ngả navy để khớp web
+XSOFTS — mỗi bậc vừa sáng hơn vừa xanh hơn bậc trước, nhờ đó phân tầng đọc được
+mà không cần đổ bóng.
+
+`success`, `errorBannerBg`, `me`, `toast*` **cố ý giữ nguyên**: chúng mang ý
+nghĩa ngữ nghĩa (thành công / lỗi / chính mình), không thuộc về thương hiệu.
+
+### 11.4 Hai lỗi của upstream đã sửa luôn
+
+1. **`colorScheme.primary` là `Colors.blue`** ở cả light lẫn dark, trong khi
+   `secondary` mới là `accent`. Widget nào đọc `colorScheme.primary` thay vì
+   `MyTheme.accent` (progress indicator, tay cầm bôi đen văn bản, con trỏ nhập
+   liệu) sẽ lòi ra màu xanh mặc định của Material. Nay cả hai đều là `accent`.
+2. **Gradient hồng–san hô** `#e242bc` → `#f4727c` ở header hộp thoại kết nối
+   trong `lib/mobile/pages/server_page.dart`, chỏi hẳn với xanh thương hiệu. Nay
+   dùng `gradientStart`/`gradientEnd`.
+
+### 11.5 Mặc định dark
+
+`BUILTIN_DEFAULTS` trong `src/custom_defaults.rs` thêm `"theme": "dark"`.
+
+`theme` nằm trong `KEYS_LOCAL_SETTINGS` nên giá trị này rơi vào
+`DEFAULT_LOCAL_SETTINGS`. Chuỗi tra cứu là
+`OVERWRITE_LOCAL_SETTINGS` → config của người dùng → `DEFAULT_LOCAL_SETTINGS`
+(`config.rs`, hàm `get_or`), nên **người dùng vẫn tự đổi sang Light hoặc Follow
+system được**; lựa chọn của họ nằm ở tầng cao hơn.
+
+> Chi tiết đáng lưu ý: khi người dùng chọn "Follow system", `changeDarkMode()`
+> ghi giá trị `defaultOptionTheme`, mà biến này là `'system'` **chỉ khi**
+> `isCustomClient` đúng — tức `APP_NAME != "RustDesk"`. Fork này đã đặt
+> `APP_NAME = "Desk Remote X"` ngay trong `hbb_common`, nên điều kiện thoả và
+> `'system'` được ghi tường minh, đè lên mặc định `dark` của ta. Nếu sau này có
+> ai đổi `APP_NAME` về `"RustDesk"` thì tuỳ chọn "Follow system" sẽ **im lặng
+> quay lại dark** — vì lúc đó nó ghi chuỗi rỗng và rơi xuống tầng mặc định.
+
+### 11.6 Phần chưa động tới
+
+| Hạng mục | Vì sao |
+| --- | --- |
+| Icon launcher, ảnh splash | Là asset ảnh, không phải giá trị theme. Nằm ở `flutter/android/app/src/main/res/mipmap-*`. |
+| `TabbarTheme` | Chỉ dùng cho tab bar bản desktop, không xuất hiện trên mobile. |
+| ~80 màu literal còn lại trong `lib/mobile/` | Phần lớn là overlay đen trong phiên điều khiển từ xa và chuột nổi — không mang tính thương hiệu. |
+| Theme đọc từ config lúc chạy | Chưa làm. Nếu cần sau này: thêm khoá màu vào `drx-defaults.json`, đọc qua `mainGetLocalOption`, và xử lý reload `ThemeData` khi giá trị đổi. |
+
+### 11.7 Cách rà sau khi merge upstream
+
+```bash
+cd flutter
+# Còn sót literal xanh của upstream không?
+grep -rn "0xFF0071FF\|0xFF2C8CFF\|0xFF00B6F0" lib/
+# colorScheme có bị upstream đặt lại về Colors.blue không?
+grep -n "primary: Colors.blue" lib/common.dart
+# Nền dark có bị kéo về xám trung tính không?
+grep -n "0xFF18191E\|0xFF24252B" lib/common.dart
+```
+Ba lệnh trên đúng ra phải **không ra kết quả nào** (trừ comment "was ...").
+
+## 12. Khi merge upstream
 
 Các chỗ có thể xung đột:
 
@@ -377,6 +472,7 @@ Các chỗ có thể xung đột:
 | `src/lib.rs` | Danh sách module | Giữ lại dòng `pub mod custom_defaults;`. |
 | `flutter/android/.../*.kt`, `strings.xml` | Upstream sửa thông báo hoặc menu | Giữ lại `notifyTitle` / `getString(R.string.app_name)`; rà lại bằng lệnh grep ở cuối mục 10. |
 | `libs/hbb_common/src/config.rs` | Upstream đổi tên khoá hoặc `KEYS_*` | Đối chiếu lại `BUILTIN_DEFAULTS`; khoá không còn tồn tại sẽ bị ghi vào cả bốn map. |
+| `flutter/lib/common.dart` | Upstream sửa `MyTheme` / `ColorThemeExtension` | Nhận thay đổi của upstream rồi trỏ lại vào `DrxBrand`; rà bằng ba lệnh grep ở mục 11.7. |
 
 Nếu upstream tự sửa lỗi `is_public` ở mục 8, cấu hình của ta vẫn đúng — chỉ là
 lúc đó nó trở thành dư thừa cho hai khoá punch, không gây hại.

@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common/formatter/id_formatter.dart';
 import 'package:flutter_hbb/desktop/widgets/refresh_wrapper.dart';
+// ===== [DRX CUSTOM] ===== fork-only brand palette, see CUSTOM_CONFIG.md
+import 'package:flutter_hbb/drx_brand.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
 import 'package:flutter_hbb/main.dart';
 import 'package:flutter_hbb/models/peer_model.dart';
@@ -168,8 +170,10 @@ class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
   final Color? toastText;
   final Color? divider;
 
+  // [DRX CUSTOM] borders/highlights pulled onto the DrxBrand ramp; the
+  // semantic entries (me, errorBannerBg, toast*) keep upstream's values.
   static final light = ColorThemeExtension(
-    border: Color(0xFFCCCCCC),
+    border: DrxBrand.lightBorder, // was 0xFFCCCCCC
     border2: Color(0xFFBBBBBB),
     border3: Colors.black26,
     highlight: Color(0xFFE5E5E5),
@@ -182,11 +186,12 @@ class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
     divider: Colors.black38,
   );
 
+  // [DRX CUSTOM] as above, for dark.
   static final dark = ColorThemeExtension(
-    border: Color(0xFF555555),
+    border: DrxBrand.darkBorder, // was 0xFF555555
     border2: Color(0xFFE5E5E5),
     border3: Colors.white24,
-    highlight: Color(0xFF3F3F3F),
+    highlight: DrxBrand.darkSelected, // was 0xFF3F3F3F
     drag_indicator: Colors.grey,
     shadow: Colors.grey,
     errorBannerBg: Color(0xFF470F2D),
@@ -250,17 +255,22 @@ class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
 class MyTheme {
   MyTheme._();
 
-  static const Color grayBg = Color(0xFFEFEFF2);
-  static const Color accent = Color(0xFF0071FF);
-  static const Color accent50 = Color(0x770071FF);
-  static const Color accent80 = Color(0xAA0071FF);
+  // ===== [DRX CUSTOM] =====
+  // Upstream declares each of these as a literal. They now point at DrxBrand so
+  // re-branding touches one fork-owned file instead of the middle of MyTheme,
+  // which upstream edits often. Upstream's original value is noted per line.
+  // See CUSTOM_CONFIG.md, section "Theme".
+  static const Color grayBg = DrxBrand.lightSurface; // was 0xFFEFEFF2
+  static const Color accent = DrxBrand.primary; // was 0xFF0071FF
+  static const Color accent50 = DrxBrand.primary50; // was 0x770071FF
+  static const Color accent80 = DrxBrand.primary80; // was 0xAA0071FF
   static const Color canvasColor = Color(0xFF212121);
-  static const Color border = Color(0xFFCCCCCC);
-  static const Color idColor = Color(0xFF00B6F0);
-  static const Color darkGray = Color.fromARGB(255, 148, 148, 148);
+  static const Color border = DrxBrand.lightBorder; // was 0xFFCCCCCC
+  static const Color idColor = DrxBrand.primaryLight; // was 0xFF00B6F0
+  static const Color darkGray = DrxBrand.muted; // was rgb(148, 148, 148)
   static const Color cmIdColor = Color(0xFF21790B);
   static const Color dark = Colors.black87;
-  static const Color button = Color(0xFF2C8CFF);
+  static const Color button = DrxBrand.primary; // was 0xFF2C8CFF
   static const Color hoverBorder = Color(0xFF999999);
 
   // ListTile
@@ -453,8 +463,11 @@ class MyTheme {
     menuBarTheme: MenuBarThemeData(
         style:
             MenuStyle(backgroundColor: MaterialStatePropertyAll(Colors.white))),
+    // [DRX CUSTOM] `primary` was Colors.blue, which is not the brand blue and
+    // leaked Material's default into any widget that reads colorScheme.primary
+    // rather than MyTheme.accent (progress indicators, text selection handles).
     colorScheme: ColorScheme.light(
-        primary: Colors.blue, secondary: accent, background: grayBg),
+        primary: accent, secondary: accent, background: grayBg),
     popupMenuTheme: PopupMenuThemeData(
         color: Colors.white,
         shape: RoundedRectangleBorder(
@@ -473,9 +486,11 @@ class MyTheme {
   static ThemeData darkTheme = ThemeData(
     useMaterial3: false,
     brightness: Brightness.dark,
-    hoverColor: Color.fromARGB(255, 45, 46, 53),
-    scaffoldBackgroundColor: Color(0xFF18191E),
-    dialogBackgroundColor: Color(0xFF18191E),
+    // [DRX CUSTOM] navy-leaning ramp from DrxBrand; upstream used a neutral
+    // grey (rgb(45,46,53) / 0xFF18191E).
+    hoverColor: DrxBrand.darkHover,
+    scaffoldBackgroundColor: DrxBrand.darkBg,
+    dialogBackgroundColor: DrxBrand.darkBg,
     appBarTheme: AppBarTheme(
       shadowColor: Colors.transparent,
     ),
@@ -485,14 +500,14 @@ class MyTheme {
         borderRadius: BorderRadius.circular(18.0),
         side: BorderSide(
           width: 1,
-          color: Color(0xFF24252B),
+          color: DrxBrand.darkSurfaceAlt, // [DRX CUSTOM] was 0xFF24252B
         ),
       ),
     ),
     scrollbarTheme: scrollbarThemeDark,
     inputDecorationTheme: (isDesktop || isWebDesktop)
         ? InputDecorationTheme(
-            fillColor: Color(0xFF24252B),
+            fillColor: DrxBrand.darkSurface, // [DRX CUSTOM] was 0xFF24252B
             filled: true,
             isDense: true,
             border: OutlineInputBorder(
@@ -511,7 +526,7 @@ class MyTheme {
         color: accent80,
       ),
     ),
-    cardColor: Color(0xFF24252B),
+    cardColor: DrxBrand.darkSurface, // [DRX CUSTOM] was 0xFF24252B
     visualDensity: VisualDensity.adaptivePlatformDensity,
     tabBarTheme: const TabBarTheme(
       labelColor: Colors.white70,
@@ -545,7 +560,7 @@ class MyTheme {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        backgroundColor: Color(0xFF24252B),
+        backgroundColor: DrxBrand.darkSurfaceAlt, // [DRX CUSTOM] was 0xFF24252B
         side: BorderSide(color: Colors.white12, width: 0.5),
         disabledForegroundColor: Colors.white70,
         foregroundColor: Colors.white70,
@@ -560,11 +575,14 @@ class MyTheme {
     listTileTheme: listTileTheme,
     menuBarTheme: MenuBarThemeData(
         style: MenuStyle(
-            backgroundColor: MaterialStatePropertyAll(Color(0xFF121212)))),
+            backgroundColor:
+                MaterialStatePropertyAll(DrxBrand.darkSurfaceAlt))), // [DRX CUSTOM] was 0xFF121212
+    // [DRX CUSTOM] see the light theme's colorScheme note; `background` also
+    // moves onto the DrxBrand ramp.
     colorScheme: ColorScheme.dark(
-      primary: Colors.blue,
+      primary: accent,
       secondary: accent,
-      background: Color(0xFF24252B),
+      background: DrxBrand.darkSurface,
     ),
     popupMenuTheme: PopupMenuThemeData(
         shape: RoundedRectangleBorder(
@@ -1152,7 +1170,7 @@ Widget createDialogContent(String text) {
     spans.add(TextSpan(
       text: match.group(0) ?? '',
       style: const TextStyle(
-        color: Colors.blue,
+        color: DrxBrand.primaryLight, // [DRX CUSTOM] was Colors.blue
         decoration: TextDecoration.underline,
       ),
       recognizer: TapGestureRecognizer()

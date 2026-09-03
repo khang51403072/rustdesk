@@ -9,6 +9,8 @@ import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
 import '../../common.dart';
+// ===== [DRX CUSTOM] ===== brand palette, see CUSTOM_CONFIG.md
+import '../../drx_brand.dart';
 import '../../common/widgets/dialog.dart';
 import '../../consts.dart';
 import '../../models/platform_model.dart';
@@ -321,9 +323,11 @@ class ScamWarningDialogState extends State<ScamWarningDialog> {
               gradient: LinearGradient(
                 begin: Alignment.topRight,
                 end: Alignment.bottomLeft,
+                // [DRX CUSTOM] upstream's pink-to-coral pair (0xffe242bc,
+                // 0xfff4727c) clashes with the brand blue. See CUSTOM_CONFIG.md.
                 colors: [
-                  Color(0xffe242bc),
-                  Color(0xfff4727c),
+                  DrxBrand.gradientStart,
+                  DrxBrand.gradientEnd,
                 ],
               ),
             ),
