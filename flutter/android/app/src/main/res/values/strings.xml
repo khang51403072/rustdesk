@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">Desk Remote X</string>
-    <string name="accessibility_service_description">Allow other devices to control your phone using virtual touch, when RustDesk screen sharing is established</string>
+    <!-- [DRX CUSTOM] The app name is spelled out here instead of referencing @string/app_name:
+         this string is loaded by the accessibility-service XML config, which cannot
+         interpolate another resource. Keep it in sync with app_name above.
+         See CUSTOM_CONFIG.md, section "Rebrand phía Android". -->
+    <string name="accessibility_service_description">Allow other devices to control your phone using virtual touch, when Desk Remote X screen sharing is established</string>
 </resources>

@@ -2192,10 +2192,30 @@ pub fn read_custom_client(config: &str) {
         log::error!("Failed to dec custom client config");
         return;
     };
+    // ===== [DRX CUSTOM] =====
+    // The body below was extracted into `apply_custom_client_json` so that
+    // `crate::custom_defaults` can reuse the exact same key-mapping logic for a config
+    // document we ship ourselves — which we cannot sign with RustDesk's private key.
+    // Upstream keeps everything inline in this function. See CUSTOM_CONFIG.md.
+    apply_custom_client_json(&data, "signed custom client config");
+}
+
+/// Apply a custom-client config document that is already decoded (and, for the signed
+/// path, already verified).
+///
+/// Understands the same document shape upstream defines: `app-name`,
+/// `default-settings`, `override-settings`, plus any remaining scalar keys, which land
+/// in `HARD_SETTINGS`.
+///
+/// `source` only appears in log messages, so a malformed document can be traced back
+/// to the file it came from.
+///
+/// ===== [DRX CUSTOM] ===== extracted from `read_custom_client`; see CUSTOM_CONFIG.md.
+pub(crate) fn apply_custom_client_json(data: &[u8], source: &str) {
     let Ok(mut data) =
-        serde_json::from_slice::<std::collections::HashMap<String, serde_json::Value>>(&data)
+        serde_json::from_slice::<std::collections::HashMap<String, serde_json::Value>>(data)
     else {
-        log::error!("Failed to parse custom client config");
+        log::error!("Failed to parse {}", source);
         return;
     };
 

@@ -42,6 +42,8 @@ mod clipboard;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub mod core_main;
 mod custom_server;
+// ===== [DRX CUSTOM] ===== fork-only default-settings loader, see CUSTOM_CONFIG.md
+pub mod custom_defaults;
 mod lang;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod port_forward;

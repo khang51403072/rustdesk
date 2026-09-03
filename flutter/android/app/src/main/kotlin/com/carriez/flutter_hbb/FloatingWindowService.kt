@@ -303,7 +303,12 @@ class FloatingWindowService : Service(), View.OnTouchListener {
      private fun showPopupMenu() {
          val popupMenu = PopupMenu(this, floatingView)
          val idShowRustDesk = 0
-         popupMenu.menu.add(0, idShowRustDesk, 0, translate("Show RustDesk"))
+         // ===== [DRX CUSTOM] =====
+         // Upstream passes translate("Show RustDesk"). That key does not exist in
+         // src/lang/*, and translate_locale returns its input unchanged on a miss, so the
+         // literal string "Show RustDesk" reached the menu in every language. Build the
+         // label from the app-name resource instead. See CUSTOM_CONFIG.md.
+         popupMenu.menu.add(0, idShowRustDesk, 0, getString(R.string.app_name))
          // For host side, clipboard sync
          val idSyncClipboard = 1
          val isServiceSyncEnabled = (MainActivity.rdClipboardManager?.isCaptureStarted ?: false) && FFI.isServiceClipboardEnabled()

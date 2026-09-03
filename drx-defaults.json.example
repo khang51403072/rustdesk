@@ -1,0 +1,12 @@
+{
+  "_comment": "Vi du file cau hinh theo dot trien khai. Doi ten thanh drx-defaults.json va dat vao thu muc du lieu rieng cua app. Xem CUSTOM_CONFIG.md.",
+  "default-settings": {
+    "enable-udp-punch": "Y",
+    "enable-ipv6-punch": "Y",
+    "allow-websocket": "N",
+    "disable-udp": "N",
+    "direct-server": "Y",
+    "direct-access-port": "21118"
+  },
+  "override-settings": {}
+}

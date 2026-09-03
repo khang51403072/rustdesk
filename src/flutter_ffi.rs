@@ -50,6 +50,12 @@ fn initialize(app_dir: &str, custom_client_config: &str) {
     } else {
         crate::read_custom_client(custom_client_config);
     }
+    // ===== [DRX CUSTOM] =====
+    // Applied after the upstream loader so our defaults are present even when no
+    // signed blob exists (which is always the case for this fork). Must run after
+    // APP_DIR is set above, because the per-deployment file is looked up there.
+    // See CUSTOM_CONFIG.md.
+    crate::custom_defaults::load();
     #[cfg(target_os = "android")]
     {
         // flexi_logger can't work when android_logger initialized.
@@ -3093,6 +3099,10 @@ pub mod server_side {
                 crate::read_custom_client(&custom_client_config);
             }
         }
+        // ===== [DRX CUSTOM] =====
+        // MainService can start the server before the Flutter engine calls `initialize`,
+        // so the loader runs here too. `load()` is idempotent. See CUSTOM_CONFIG.md.
+        crate::custom_defaults::load();
         std::thread::spawn(move || start_server(true));
     }
 

@@ -46,6 +46,11 @@ import java.nio.ByteBuffer
 import kotlin.math.max
 import kotlin.math.min
 
+// ===== [DRX CUSTOM] =====
+// Upstream hard-codes "RustDesk" here. The notification title is user-visible for as
+// long as the service runs, so it must follow the app name. Kept as a top-level const
+// (a const cannot call getString), and every use site now resolves the real app name
+// via `notifyTitle`. See CUSTOM_CONFIG.md, section "Rebrand phía Android".
 const val DEFAULT_NOTIFY_TITLE = "RustDesk"
 const val DEFAULT_NOTIFY_TEXT = "Service is running"
 const val DEFAULT_NOTIFY_ID = 1
@@ -595,16 +600,28 @@ class MainService : Service() {
         }
     }
 
+    // ===== [DRX CUSTOM] =====
+    // The app name as the user knows it. Comes from res/values/strings.xml, the same
+    // resource that AndroidManifest uses for android:label, so the notification, the
+    // launcher icon and the system permission dialogs can never drift apart.
+    private val notifyTitle: String
+        get() = getString(R.string.app_name)
+
     private fun initNotification() {
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationChannel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // ===== [DRX CUSTOM] =====
+            // channelId stays "RustDesk" on purpose: it is never shown to the user, and
+            // changing it would create a second channel while orphaning the existing one
+            // on devices that already have the app installed. Only the visible name and
+            // description are rebranded.
             val channelId = "RustDesk"
-            val channelName = "RustDesk Service"
+            val channelName = "$notifyTitle Service"
             val channel = NotificationChannel(
                 channelId,
                 channelName, NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "RustDesk Service Channel"
+                description = "$notifyTitle Service Channel"
             }
             channel.lightColor = Color.BLUE
             channel.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
@@ -635,7 +652,7 @@ class MainService : Service() {
             .setDefaults(Notification.DEFAULT_ALL)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentTitle(DEFAULT_NOTIFY_TITLE)
+            .setContentTitle(notifyTitle) // [DRX CUSTOM] was DEFAULT_NOTIFY_TITLE
             .setContentText(translate(DEFAULT_NOTIFY_TEXT))
             .setOnlyAlertOnce(true)
             .setContentIntent(pendingIntent)
@@ -716,7 +733,7 @@ class MainService : Service() {
     }
 
     private fun setTextNotification(_title: String?, _text: String?) {
-        val title = _title ?: DEFAULT_NOTIFY_TITLE
+        val title = _title ?: notifyTitle // [DRX CUSTOM] was DEFAULT_NOTIFY_TITLE
         val text = _text ?: translate(DEFAULT_NOTIFY_TEXT)
         val notification = notificationBuilder
             .clearActions()
