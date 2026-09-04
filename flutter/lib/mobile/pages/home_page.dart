@@ -4,6 +4,8 @@ import 'package:flutter_hbb/mobile/pages/settings_page.dart';
 import 'package:flutter_hbb/web/settings_page.dart';
 import 'package:get/get.dart';
 import '../../common.dart';
+// ===== [DRX CUSTOM] ===== per-theme colours, see CUSTOM_CONFIG.md
+import '../../drx_brand.dart';
 import '../../common/widgets/chat_page.dart';
 import '../../models/platform_model.dart';
 import '../../models/state_model.dart';
@@ -87,8 +89,11 @@ class HomePageState extends State<HomePage> {
                 .toList(),
             currentIndex: _selectedIndex,
             type: BottomNavigationBarType.fixed,
-            selectedItemColor: MyTheme.accent, //
-            unselectedItemColor: MyTheme.darkGray,
+            // [DRX CUSTOM] MyTheme.accent reads at 2.9 on a light bar and
+            // darkGray at 2.6; both are single values shared by the two
+            // themes. See CUSTOM_CONFIG.md.
+            selectedItemColor: DrxBrand.accentOf(context),
+            unselectedItemColor: DrxBrand.mutedOf(context),
             onTap: (index) => setState(() {
               // close chat overlay when go chat page
               if (_selectedIndex != index) {

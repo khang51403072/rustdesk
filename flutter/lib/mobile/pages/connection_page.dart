@@ -11,6 +11,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_hbb/models/peer_model.dart';
 
 import '../../common.dart';
+// ===== [DRX CUSTOM] ===== per-theme colours, see CUSTOM_CONFIG.md
+import '../../drx_brand.dart';
 import '../../common/widgets/peer_tab_page.dart';
 import '../../common/widgets/autocomplete.dart';
 import '../../consts.dart';
@@ -240,16 +242,16 @@ class _ConnectionPageState extends State<ConnectionPage> {
                           labelText: translate('Remote ID'),
                           // hintText: 'Enter your remote ID',
                           border: InputBorder.none,
-                          helperStyle: const TextStyle(
+                          helperStyle: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
-                            color: MyTheme.darkGray,
+                            color: DrxBrand.mutedOf(context),
                           ),
-                          labelStyle: const TextStyle(
+                          labelStyle: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 16,
                             letterSpacing: 0.2,
-                            color: MyTheme.darkGray,
+                            color: DrxBrand.mutedOf(context),
                           ),
                         ),
                         inputFormatters: [IDTextInputFormatter()],
@@ -332,14 +334,15 @@ class _ConnectionPageState extends State<ConnectionPage> {
                             _idController.clear();
                           });
                         },
-                        icon: Icon(Icons.clear, color: MyTheme.darkGray)),
+                        icon: Icon(Icons.clear,
+                            color: DrxBrand.mutedOf(context))),
                   )),
               SizedBox(
                 width: 60,
                 height: 60,
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_forward,
-                      color: MyTheme.darkGray, size: 45),
+                  icon: Icon(Icons.arrow_forward,
+                      color: DrxBrand.mutedOf(context), size: 45),
                   onPressed: onConnect,
                 ),
               ),

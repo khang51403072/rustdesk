@@ -7,6 +7,8 @@ import 'package:get/get.dart';
 import 'package:toggle_switch/toggle_switch.dart';
 
 import '../../common.dart';
+// ===== [DRX CUSTOM] ===== per-theme colours, see CUSTOM_CONFIG.md
+import '../../drx_brand.dart';
 import '../../common/widgets/dialog.dart';
 
 class FileManagerPage extends StatefulWidget {
@@ -495,7 +497,10 @@ class _FileManagerViewState extends State<FileManagerView> {
                     ? null
                     : Text(
                         "${entries[index].lastModified().toString().replaceAll(".000", "")}   $sizeStr",
-                        style: TextStyle(fontSize: 12, color: MyTheme.darkGray),
+                        style: TextStyle(
+                            fontSize: 12,
+                            // [DRX CUSTOM] darkGray reads at 2.3 on white.
+                            color: DrxBrand.mutedOf(context)),
                       ),
                 trailing: entries[index].isDrive
                     ? null
@@ -670,14 +675,14 @@ class _FileManagerViewState extends State<FileManagerView> {
               padding: EdgeInsets.fromLTRB(30, 5, 30, 0),
               child: Text(
                 controller.directory.value.path,
-                style: TextStyle(color: MyTheme.darkGray),
+                style: TextStyle(color: DrxBrand.mutedOf(context)),
               ),
             ),
             Padding(
               padding: EdgeInsets.all(2),
               child: Text(
                 "${translate("Total")}: ${controller.directory.value.entries.length} ${translate("items")}",
-                style: TextStyle(color: MyTheme.darkGray),
+                style: TextStyle(color: DrxBrand.mutedOf(context)),
               ),
             )
           ],

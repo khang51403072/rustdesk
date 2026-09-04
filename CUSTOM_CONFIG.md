@@ -4,10 +4,11 @@
 > Mọi thứ nói ở đây là phần chúng ta thêm vào. Khi merge upstream, đây là danh
 > sách những chỗ cần để ý.
 >
-> Doc gồm bốn phần: **mục 1–9** là cơ chế đặt giá trị mặc định, **mục 10** là
+> Doc gồm năm phần: **mục 1–9** là cơ chế đặt giá trị mặc định, **mục 10** là
 > rebrand phía Android, **mục 11** là theme thương hiệu, **mục 12** là lớp giao
-> diện mobile mới. Bốn thứ khác chủ đề nhưng cùng bản chất — code riêng nằm rải
-> trong file của upstream — nên gom chung một chỗ để rà.
+> diện mobile mới, **mục 13** là bảng màu tách theo chế độ. Năm thứ khác chủ đề
+> nhưng cùng bản chất — code riêng nằm rải trong file của upstream — nên gom
+> chung một chỗ để rà.
 
 ## 1. Tóm tắt trong 30 giây
 
@@ -540,7 +541,83 @@ cả hai — chỉ một trong hai đang được dựng nên gọi cả hai là
 - `chat_model.dart:157` vẫn còn chốt chặn index 1 (chưa cần gỡ, xem 12.5).
 - Ô peer vẫn dùng nguyên `PeerTabPage` / `peer_card.dart`.
 
-## 13. Khi merge upstream
+## 13. Bảng màu tách theo chế độ
+
+### 13.1 Vấn đề gốc
+
+`MyTheme.accent` là `static const` — **một giá trị dùng chung cho cả hai chế
+độ**. Với chữ và icon, đó không phải lựa chọn tồi mà là chuyện **bất khả**:
+
+| Yêu cầu | Ràng buộc độ sáng màu |
+| --- | --- |
+| Đạt 4.5 trên nền **trắng** | ≤ 0.183 |
+| Đạt 4.5 trên nền **tối** `#0A1018` | ≥ 0.210 |
+
+Hai khoảng **rời nhau**. Không màu nào — xanh hay không — thoả cả hai. Vì vậy
+mọi màu dùng chung đều sẽ hỏng ở một trong hai chế độ. Thực tế đo được:
+
+| Hằng số | Trên nền trắng |
+| --- | --- |
+| `MyTheme.accent` `#2F9BFF` | **2.9** |
+| `MyTheme.darkGray` `#94A3B3` | **2.6** |
+| `MyTheme.accent80` | **2.2** |
+| `DrxBrand.success` `#22C55E` | **2.0** |
+
+### 13.2 Cách sửa — ba tầng
+
+**Tầng 1 · `ThemeData` dựng riêng cho từng chế độ.** Đòn bẩy lớn nhất: mọi
+widget Material lấy màu từ theme đều được sửa mà không phải đụng chỗ gọi nào.
+
+| Mục | Trước | Sau |
+| --- | --- | --- |
+| `colorScheme.primary/secondary` | `MyTheme.accent` | accent theo chế độ |
+| `elevatedButtonTheme` | `MyTheme.accent` cho cả hai | `accentOnLight` / `actionGradientStart` |
+| `switchTheme`, `radioTheme`, `checkboxTheme` | không có màu → rơi về `secondary` | nhận cờ `dark`, tô theo chế độ |
+| `progressIndicatorTheme` | không có | thêm mới |
+| `textSelectionTheme` | không có | thêm mới |
+| `textTheme.labelLarge` | `accent80` | accent theo chế độ |
+
+`switchTheme()` / `radioTheme()` giờ nhận tham số `bool dark`, và có thêm
+`checkboxThemeOf(bool)`. Đây là lý do hàm đổi chữ ký.
+
+**Tầng 2 · bộ hàm chọn theo chế độ trong `DrxBrand`.**
+`accentOf(context)`, `mutedOf`, `identityOf`, `successOf`, `dangerOf`,
+`warningOf` — đọc `Theme.of(context).brightness`.
+
+Không dùng `ThemeExtension` mới: `themeMode` ánh xạ 1-1 sang `brightness`, nên
+một hàm đọc brightness là đủ, ít gián tiếp hơn và không phải sửa `copyWith` /
+`lerp` của `ColorThemeExtension` (code upstream).
+
+**Tầng 3 · chuyển các chỗ gọi trực tiếp.** Chỉ những chỗ **vẽ trên nền sáng**:
+`home_page.dart` (vỏ cũ), `file_manager_page.dart`, `connection_page.dart`,
+`server_page.dart`.
+
+### 13.3 Dải màu tối nới rộng
+
+| | Trước | Sau | Tương phản |
+| --- | --- | --- | --- |
+| nền trang | `#12161C` | `#0A1018` | — |
+| thẻ | `#1A2029` | `#1A2432` | so với nền: 1.09 → **1.22** |
+| nổi | `#222B36` | `#28374A` | — |
+| đường kẻ | `#2C3543` | `#3A4D64` | so với thẻ: 1.40 → **1.81** |
+
+Ở 1.09 thì cạnh thẻ vô hình trên màn OLED; ở 1.40 thì đường kẻ trong thẻ không
+thấy.
+
+### 13.4 Cố ý chưa sửa
+
+| Chỗ | Số lượng | Lý do |
+| --- | --- | --- |
+| `remote_page`, `view_camera_page`, `gesture_help` | 11 | Màn hình trong phiên, vẽ trên nền canvas tối. Accent trên nền tối là **đúng**, không phải lỗi. |
+| Icon tiêu đề hộp thoại (`dialog.dart`) | 6 | Icon cần 3.0 chứ không phải 4.5; hiện đạt 2.9 — thiếu sát ngưỡng, và chúng đi kèm nhãn chữ đã đọc được. |
+| Nền bong bóng chat (`chat_page.dart:162`) | 1 | Có thật, nhưng thuộc phần chat — sửa cùng lúc làm chat. |
+| `peer_card.dart` | 3 | Bước 4 sẽ sửa file này. |
+| Bản desktop | 33 | Bề mặt khác, chưa kiểm thử. Ngoài phạm vi. |
+
+`MyTheme.accent` và `MyTheme.darkGray` **giữ nguyên giá trị** cho các chỗ trên,
+nhưng đã kèm chú thích cảnh báo và chỉ sang `DrxBrand.accentOf(context)`.
+
+## 14. Khi merge upstream
 
 Các chỗ có thể xung đột:
 
@@ -554,6 +631,8 @@ Các chỗ có thể xung đột:
 | `flutter/lib/common.dart` | Upstream sửa `MyTheme` / `ColorThemeExtension` | Nhận thay đổi của upstream rồi trỏ lại vào `DrxBrand`; rà bằng ba lệnh grep ở mục 11.7. |
 | `flutter/lib/main.dart` | Upstream sửa cây widget gốc | Giữ nhánh `useDrxUi ? DrxHomePage() : HomePage()` ở dòng `home:`. |
 | `flutter/lib/mobile/pages/server_page.dart`, `settings_page.dart` | Upstream sửa quanh chỗ ta rẽ nhánh | Giữ hai móc `[DRX CUSTOM]` ở mục 12.5. |
+| `flutter/lib/common.dart` | Upstream sửa `lightTheme` / `darkTheme` | Giữ các mục theo chế độ ở mục 13.2. `switchTheme`/`radioTheme` đã đổi chữ ký. |
+| `flutter/lib/common/widgets/peer_tab_page.dart` | Upstream sửa dải tab | Giữ `_drxTabIcon` và nhánh `isMobile` cho màu. |
 
 Nếu upstream tự sửa lỗi `is_public` ở mục 8, cấu hình của ta vẫn đúng — chỉ là
 lúc đó nó trở thành dư thừa cho hai khoá punch, không gây hại.

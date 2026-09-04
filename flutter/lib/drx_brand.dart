@@ -62,29 +62,33 @@ class DrxBrand {
   // before, so elevation reads without needing shadows.
 
   /// Page background — the darkest surface. Upstream: 0xFF18191E (neutral grey).
-  static const Color darkBg = Color(0xFF12161C);
+  static const Color darkBg = Color(0xFF0A1018);
 
-  /// Cards, dialogs, input fills — one step up from [darkBg].
+  /// Cards, dialogs, input fills — one step up from [darkBg]. The gap to
+  /// [darkBg] used to be 1.09 and is now 1.22: at 1.09 a card had no visible
+  /// edge on an OLED screen.
   /// Upstream: 0xFF24252B.
-  static const Color darkSurface = Color(0xFF1A2029);
+  static const Color darkSurface = Color(0xFF1A2432);
 
   /// Menus and popups, which must separate from a card already sitting on
   /// [darkSurface].
-  static const Color darkSurfaceAlt = Color(0xFF222B36);
+  static const Color darkSurfaceAlt = Color(0xFF28374A);
 
   /// Hover / pressed feedback on a dark surface. Upstream: rgb(45, 46, 53).
-  static const Color darkHover = Color(0xFF263140);
+  static const Color darkHover = Color(0xFF2E3E52);
 
   /// Selected row or tab — a blue-tinted surface, not a grey one, so selection
   /// reads as "brand" rather than as "disabled".
-  static const Color darkSelected = Color(0xFF1B3350);
+  static const Color darkSelected = Color(0xFF17304C);
 
   /// App bar and bottom navigation. Chrome sits one step above the page but
   /// below a card, so it reads as a frame rather than as content.
-  static const Color darkAppBar = Color(0xFF161D27);
+  static const Color darkAppBar = Color(0xFF131B26);
 
-  /// Hairlines between sections on dark. Upstream: 0xFF555555.
-  static const Color darkBorder = Color(0xFF2C3543);
+  /// Hairlines between sections on dark. Raised from 1.40 to 1.81 against
+  /// [darkSurface] — below that a divider inside a card is invisible.
+  /// Upstream: 0xFF555555.
+  static const Color darkBorder = Color(0xFF3A4D64);
 
   // ----------------------------------------------------------- light surfaces
   // The light theme is kept close to upstream: it is a fallback for users who
@@ -155,11 +159,37 @@ class DrxBrand {
   static Color mutedOf(BuildContext context) =>
       _isDark(context) ? mutedOnDark : mutedOnLight;
 
+  /// Affirmative colour for the live theme.
+  static Color successOf(BuildContext context) =>
+      _isDark(context) ? successOnDark : successOnLight;
+
+  /// Destructive colour for the live theme.
+  static Color dangerOf(BuildContext context) =>
+      _isDark(context) ? dangerOnDark : dangerOnLight;
+
+  /// Attention colour for the live theme.
+  static Color warningOf(BuildContext context) =>
+      _isDark(context) ? warningOnDark : warningOnLight;
+
   // ---------------------------------------------------------------- semantic
   // Not brand-owned on purpose — see the header note.
 
   /// Affirmative state: connected, service running, permission granted.
+  ///
+  /// [success] is the brand-facing green and holds up on the dark ramp, but it
+  /// only reaches 2.0 on a light card — far under the 4.5 needed to read as
+  /// text. Anything that writes words in green uses [successOf].
   static const Color success = Color(0xFF22C55E);
+  static const Color successOnLight = Color(0xFF0F7A43); // 4.8 on light card
+  static const Color successOnDark = Color(0xFF46C97F); // 7.7 on dark card
+
+  /// Attention state: a permission is missing, the service is not running.
+  static const Color warningOnLight = Color(0xFF965900); // 5.0 on light card
+  static const Color warningOnDark = Color(0xFFE9A23B); // 7.6 on dark card
+
+  /// Destructive state: stop the service, connection lost, bad input.
+  static const Color dangerOnLight = Color(0xFFC63434); // 4.8 on light card
+  static const Color dangerOnDark = Color(0xFFFF7B72); // 6.5 on dark card
 
   /// Decorative gradient on the connection-manager header
   /// (`lib/mobile/pages/server_page.dart`). Upstream used a pink-to-coral pair

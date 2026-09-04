@@ -641,7 +641,7 @@ class _PermissionCheckerState extends State<PermissionChecker> {
                   Expanded(
                       child: Text(
                     translate("android_version_audio_tip"),
-                    style: const TextStyle(color: MyTheme.darkGray),
+                    style: TextStyle(color: DrxBrand.mutedOf(context)),
                   ))
                 ]),
           PermissionRow(

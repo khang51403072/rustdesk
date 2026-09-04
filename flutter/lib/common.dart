@@ -261,12 +261,23 @@ class MyTheme {
   // which upstream edits often. Upstream's original value is noted per line.
   // See CUSTOM_CONFIG.md, section "Theme".
   static const Color grayBg = DrxBrand.lightSurface; // was 0xFFEFEFF2
+  /// Legacy single-value accent, kept for the ~33 desktop call sites that
+  /// still read it.
+  ///
+  /// **Do not use it for text or icons on a surface whose colour follows the
+  /// theme.** No colour can clear WCAG 4.5 on both white and the dark ground —
+  /// the two requirements are numerically disjoint (a colour needs luminance
+  /// <= 0.183 for white and >= 0.210 for the dark ground). This one reaches
+  /// 2.9 on white. Reach for `DrxBrand.accentOf(context)` instead, or let the
+  /// widget take its colour from `ThemeData`, which is now built per theme.
   static const Color accent = DrxBrand.primary; // was 0xFF0071FF
   static const Color accent50 = DrxBrand.primary50; // was 0x770071FF
   static const Color accent80 = DrxBrand.primary80; // was 0xAA0071FF
   static const Color canvasColor = Color(0xFF212121);
   static const Color border = DrxBrand.lightBorder; // was 0xFFCCCCCC
   static const Color idColor = DrxBrand.primaryLight; // was 0xFF00B6F0
+  /// Legacy single-value secondary text colour. Reaches 2.6 on white — see
+  /// the note on [accent]. Prefer `DrxBrand.mutedOf(context)`.
   static const Color darkGray = DrxBrand.muted; // was rgb(148, 148, 148)
   static const Color cmIdColor = Color(0xFF21790B);
   static const Color dark = Colors.black87;
@@ -282,14 +293,40 @@ class MyTheme {
     ),
   );
 
-  static SwitchThemeData switchTheme() {
+  // ===== [DRX CUSTOM] =====
+  // These used to take no colour, so every switch and radio fell back to
+  // `colorScheme.secondary` — one value shared by both themes. The accent has
+  // to differ per theme (no single colour clears 4.5 on white *and* on the
+  // dark ground), so the theme is built twice and each half is handed its own.
+  static SwitchThemeData switchTheme(bool dark) {
+    final on = dark ? DrxBrand.accentOnDark : DrxBrand.accentOnLight;
     return SwitchThemeData(
-        splashRadius: (isDesktop || isWebDesktop) ? 0 : kRadialReactionRadius);
+      splashRadius: (isDesktop || isWebDesktop) ? 0 : kRadialReactionRadius,
+      thumbColor: MaterialStateProperty.resolveWith((states) =>
+          states.contains(MaterialState.selected) ? on : null),
+      trackColor: MaterialStateProperty.resolveWith((states) =>
+          states.contains(MaterialState.selected)
+              ? on.withOpacity(0.45)
+              : null),
+    );
   }
 
-  static RadioThemeData radioTheme() {
+  static RadioThemeData radioTheme(bool dark) {
+    final on = dark ? DrxBrand.accentOnDark : DrxBrand.accentOnLight;
     return RadioThemeData(
-        splashRadius: (isDesktop || isWebDesktop) ? 0 : kRadialReactionRadius);
+      splashRadius: (isDesktop || isWebDesktop) ? 0 : kRadialReactionRadius,
+      fillColor: MaterialStateProperty.resolveWith((states) =>
+          states.contains(MaterialState.selected) ? on : null),
+    );
+  }
+
+  /// [checkboxTheme] with the per-theme accent filled in. See [switchTheme].
+  static CheckboxThemeData checkboxThemeOf(bool dark) {
+    final on = dark ? DrxBrand.accentOnDark : DrxBrand.accentOnLight;
+    return checkboxTheme.copyWith(
+      fillColor: MaterialStateProperty.resolveWith((states) =>
+          states.contains(MaterialState.selected) ? on : null),
+    );
   }
 
   // Checkbox
@@ -433,7 +470,9 @@ class MyTheme {
         bodySmall: TextStyle(fontSize: 12, color: Colors.black87, height: 1.25),
         bodyMedium:
             TextStyle(fontSize: 14, color: Colors.black87, height: 1.25),
-        labelLarge: TextStyle(fontSize: 16.0, color: MyTheme.accent80)),
+        // [DRX CUSTOM] was MyTheme.accent80, which reads at 2.2 on white.
+        labelLarge:
+            TextStyle(fontSize: 16.0, color: DrxBrand.accentOnLight)),
     cardColor: grayBg,
     hintColor: Color(0xFFAAAAAA),
     visualDensity: VisualDensity.adaptivePlatformDensity,
@@ -454,9 +493,12 @@ class MyTheme {
             ),
           )
         : mobileTextButtonTheme,
+    // [DRX CUSTOM] was MyTheme.accent, which put white text on #2F9BFF at
+    // 2.9 — every raised button in the light theme was unreadable.
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: MyTheme.accent,
+        backgroundColor: DrxBrand.accentOnLight,
+        foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8.0),
         ),
@@ -471,9 +513,9 @@ class MyTheme {
         ),
       ),
     ),
-    switchTheme: switchTheme(),
-    radioTheme: radioTheme(),
-    checkboxTheme: checkboxTheme,
+    switchTheme: switchTheme(false),
+    radioTheme: radioTheme(false),
+    checkboxTheme: checkboxThemeOf(false),
     listTileTheme: listTileTheme,
     menuBarTheme: MenuBarThemeData(
         style:
@@ -482,7 +524,15 @@ class MyTheme {
     // leaked Material's default into any widget that reads colorScheme.primary
     // rather than MyTheme.accent (progress indicators, text selection handles).
     colorScheme: ColorScheme.light(
-        primary: accent, secondary: accent, background: grayBg),
+        primary: DrxBrand.accentOnLight,
+        secondary: DrxBrand.accentOnLight,
+        background: grayBg),
+    progressIndicatorTheme:
+        const ProgressIndicatorThemeData(color: DrxBrand.accentOnLight),
+    textSelectionTheme: const TextSelectionThemeData(
+      cursorColor: DrxBrand.accentOnLight,
+      selectionHandleColor: DrxBrand.accentOnLight,
+    ),
     popupMenuTheme: PopupMenuThemeData(
         color: Colors.white,
         shape: RoundedRectangleBorder(
@@ -550,7 +600,7 @@ class MyTheme {
       labelLarge: TextStyle(
         fontSize: 16.0,
         fontWeight: FontWeight.bold,
-        color: accent80,
+        color: DrxBrand.accentOnDark, // [DRX CUSTOM] was accent80
       ),
     ),
     cardColor: DrxBrand.darkSurface, // [DRX CUSTOM] was 0xFF24252B
@@ -574,9 +624,11 @@ class MyTheme {
             ),
           )
         : mobileTextButtonTheme,
+    // [DRX CUSTOM] see the light theme's note; the dark half needs the darker
+    // half of the ramp so white text on the fill still clears 4.5.
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: MyTheme.accent,
+        backgroundColor: DrxBrand.actionGradientStart,
         foregroundColor: Colors.white,
         disabledForegroundColor: Colors.white70,
         disabledBackgroundColor: Colors.white10,
@@ -596,9 +648,9 @@ class MyTheme {
         ),
       ),
     ),
-    switchTheme: switchTheme(),
-    radioTheme: radioTheme(),
-    checkboxTheme: checkboxTheme,
+    switchTheme: switchTheme(true),
+    radioTheme: radioTheme(true),
+    checkboxTheme: checkboxThemeOf(true),
     listTileTheme: listTileTheme,
     menuBarTheme: MenuBarThemeData(
         style: MenuStyle(
@@ -607,9 +659,15 @@ class MyTheme {
     // [DRX CUSTOM] see the light theme's colorScheme note; `background` also
     // moves onto the DrxBrand ramp.
     colorScheme: ColorScheme.dark(
-      primary: accent,
-      secondary: accent,
+      primary: DrxBrand.accentOnDark,
+      secondary: DrxBrand.accentOnDark,
       background: DrxBrand.darkSurface,
+    ),
+    progressIndicatorTheme:
+        const ProgressIndicatorThemeData(color: DrxBrand.accentOnDark),
+    textSelectionTheme: const TextSelectionThemeData(
+      cursorColor: DrxBrand.accentOnDark,
+      selectionHandleColor: DrxBrand.accentOnDark,
     ),
     popupMenuTheme: PopupMenuThemeData(
         shape: RoundedRectangleBorder(
