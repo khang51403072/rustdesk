@@ -191,6 +191,52 @@ class DrxBrand {
   static const Color dangerOnLight = Color(0xFFC63434); // 4.8 on light card
   static const Color dangerOnDark = Color(0xFFFF7B72); // 6.5 on dark card
 
+  // ------------------------------------------------------------- platforms
+  // Upstream tints the platform badge with `str2color(id + platform)` — a hash
+  // of the peer's id. The colour is stable per machine but means nothing: two
+  // Windows boxes get two unrelated colours. These carry the platform instead,
+  // so the badge says something at a glance that the glyph already says, and
+  // the whole list becomes scannable by colour.
+
+  static const List<Color> _platformWindows = [
+    Color(0xFF2C7FD8),
+    Color(0xFF1B4FAF)
+  ];
+  static const List<Color> _platformMac = [Color(0xFF7A8794), Color(0xFF515C69)];
+  static const List<Color> _platformLinux = [
+    Color(0xFFE2703A),
+    Color(0xFFB3421C)
+  ];
+  static const List<Color> _platformAndroid = [
+    Color(0xFF3DDC84),
+    Color(0xFF1F9E5A)
+  ];
+
+  /// Neutral ramp for a peer that is currently offline. State beats identity
+  /// here: a machine you cannot reach should not look as inviting as one you
+  /// can, and the platform is still readable from the glyph.
+  static const List<Color> _platformOffline = [
+    Color(0xFF6C7B8E),
+    Color(0xFF48566A)
+  ];
+
+  /// Gradient for a peer badge. [platform] takes the same values
+  /// `getPlatformImage` accepts; anything unrecognised is treated as Windows,
+  /// matching that function's own fallback.
+  static List<Color> platformGradient(String platform, {bool online = true}) {
+    if (!online) return _platformOffline;
+    switch (platform) {
+      case 'Mac OS':
+        return _platformMac;
+      case 'Linux':
+        return _platformLinux;
+      case 'Android':
+        return _platformAndroid;
+      default:
+        return _platformWindows;
+    }
+  }
+
   /// Decorative gradient on the connection-manager header
   /// (`lib/mobile/pages/server_page.dart`). Upstream used a pink-to-coral pair
   /// that clashes with the brand blue.

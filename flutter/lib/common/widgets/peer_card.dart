@@ -11,6 +11,9 @@ import 'package:provider/provider.dart';
 import '../../common.dart';
 import '../../common/formatter/id_formatter.dart';
 import '../../models/peer_model.dart';
+// ===== [DRX CUSTOM] ===== see CUSTOM_CONFIG.md
+import '../../drx_brand.dart';
+import '../../drx/widgets/drx_peer_tile.dart';
 import '../../models/platform_model.dart';
 import '../../desktop/widgets/material_mod_popup_menu.dart' as mod_menu;
 import '../../desktop/widgets/popup_menu.dart';
@@ -139,6 +142,20 @@ class _PeerCardState extends State<_PeerCard>
         fontSize: 11,
         color: Theme.of(context).textTheme.titleLarge?.color?.withOpacity(0.6));
     final showNote = _showNote(peer);
+
+    // ===== [DRX CUSTOM] =====
+    // Mobile portrait draws a different row; see `drx_peer_tile.dart` for what
+    // and why. `isMobile` matters as much as `isPortrait`: a narrow desktop
+    // window also reports portrait, and that layout is not meant for it.
+    if (isMobile && isPortrait) {
+      return DrxPeerTile(
+        peer: peer,
+        name: name,
+        note: showNote ? peer.note : null,
+        hasPassword: _shouldBuildPasswordIcon(peer),
+        trailing: checkBoxOrActionMorePortrait(peer),
+      );
+    }
 
     return Row(
       mainAxisSize: MainAxisSize.max,
@@ -428,7 +445,8 @@ class _PeerCardState extends State<_PeerCard>
         child: selected
             ? Icon(
                 Icons.check_box,
-                color: MyTheme.accent,
+                // [DRX CUSTOM] MyTheme.accent reads at 2.9 on a light card.
+                color: DrxBrand.accentOf(context),
               )
             : Icon(Icons.check_box_outline_blank),
       );
@@ -454,7 +472,7 @@ class _PeerCardState extends State<_PeerCard>
       final icon = selected
           ? Icon(
               Icons.check_box,
-              color: MyTheme.accent,
+              color: DrxBrand.accentOf(context), // [DRX CUSTOM]
             )
           : Icon(Icons.check_box_outline_blank);
       bool last = peerTabModel.isShiftDown && peer.id == peerTabModel.lastId;
@@ -462,7 +480,8 @@ class _PeerCardState extends State<_PeerCard>
       if (last) {
         return Container(
           decoration: BoxDecoration(
-              border: Border.all(color: MyTheme.accent, width: 1)),
+              border: Border.all(
+                  color: DrxBrand.accentOf(context), width: 1)), // [DRX CUSTOM]
           child: icon,
         ).marginOnly(right: right);
       } else {
