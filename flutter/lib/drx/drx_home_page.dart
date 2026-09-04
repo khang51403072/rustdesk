@@ -32,7 +32,7 @@ import '../drx_brand.dart';
 import 'drx_connect_page.dart';
 import '../mobile/pages/home_page.dart' show PageShape;
 import 'drx_share_page.dart';
-import '../mobile/pages/settings_page.dart';
+import 'drx_settings_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────
 // WHY THERE IS NO CHAT TAB, AND WHY `navigationBarKey` IS LEFT UNATTACHED
@@ -117,7 +117,8 @@ class DrxHomePageState extends State<DrxHomePage> {
         filled: Icons.mobile_screen_share,
       ));
     }
-    _pages.add(SettingsPage());
+    // [DRX CUSTOM] step 5 replaced this tab's contents.
+    _pages.add(DrxSettingsPage());
     _navItems.add(const _NavItem(
       label: 'Settings',
       outlined: Icons.settings_outlined,

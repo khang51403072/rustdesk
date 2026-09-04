@@ -774,5 +774,11 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Your ip is blocked by the peer", ""),
         ("id_whitelist_caveat_tip", ""),
         ("whitelist_cidr_tip", ""),
+        ("Application", ""),
+        ("Image quality", ""),
+        ("Advanced", ""),
+        ("Risky", ""),
+        ("Copy", ""),
+        ("drx-udp-punch-tip", ""),
     ].iter().cloned().collect();
 }
