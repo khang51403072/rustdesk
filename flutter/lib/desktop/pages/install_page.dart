@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+// ===== [DRX CUSTOM] ===== brand links, see CUSTOM_CONFIG.md
+import 'package:flutter_hbb/drx/drx_links.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
@@ -186,10 +188,10 @@ class _InstallPageBodyState extends State<_InstallPageBody>
                               .marginOnly(bottom: em),
                           InkWell(
                             hoverColor: Colors.transparent,
-                            onTap: () => launchUrlString(
-                                'https://rustdesk.com/privacy.html'),
+                            // [DRX CUSTOM] was rustdesk.com/privacy.html
+                            onTap: () => launchUrlString(DrxLinks.privacy),
                             child: Tooltip(
-                              message: 'https://rustdesk.com/privacy.html',
+                              message: DrxLinks.privacy,
                               child: Row(children: [
                                 Icon(Icons.launch_outlined, size: 16)
                                     .marginOnly(right: 5),

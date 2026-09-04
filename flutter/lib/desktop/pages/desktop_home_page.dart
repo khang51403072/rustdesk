@@ -4,6 +4,8 @@ import 'dart:convert';
 
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
+// ===== [DRX CUSTOM] ===== brand links, see CUSTOM_CONFIG.md
+import 'package:flutter_hbb/drx/drx_links.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/animated_rotation_widget.dart';
@@ -437,7 +439,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       final isToUpdate = (isWindows || isMacOS) && bind.mainIsInstalled();
       String btnText = isToUpdate ? 'Update' : 'Download';
       GestureTapCallback onPressed = () async {
-        final Uri url = Uri.parse('https://rustdesk.com/download');
+        // [DRX CUSTOM] was https://rustdesk.com/download
+        final Uri url = Uri.parse(DrxLinks.download);
         await launchUrl(url);
       };
       if (isToUpdate) {

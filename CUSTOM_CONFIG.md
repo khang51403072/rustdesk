@@ -507,6 +507,9 @@ sau.
 | `flutter/lib/mobile/pages/settings_page.dart` | sửa 1 dòng | Báo cả hai vỏ khi cần dựng lại danh sách tab. |
 | `flutter/lib/mobile/pages/server_page.dart` | sửa 1 chỗ | Nút chat của client: vỏ DRX mở bong bóng thay vì nhảy tab. |
 | `src/custom_defaults.rs` | thêm 1 khoá | `"ui": "drx"`. |
+| `flutter/lib/drx/drx_connect_page.dart`, `drx_share_page.dart` | **mới** | Ruột tab Kết nối và Chia sẻ màn hình (bước 2, 3). |
+| `flutter/lib/drx/widgets/*.dart` | **mới** | `DrxIdCard`, `DrxCard`, `DrxPrimaryButton`, `DrxPeerTile`. |
+| `flutter/lib/common/widgets/peer_card.dart` | thêm 1 hook | Mobile portrait rẽ sang `DrxPeerTile`; 3 chỗ `MyTheme.accent` chuyển sang `accentOf` (bước 4). |
 
 ### 12.4 Vì sao bỏ tab Trò chuyện
 
@@ -535,11 +538,100 @@ tab chat. Dưới vỏ DRX `bar` là null nên nút thành vô tác dụng. Đã
 `HomePage.homeKey` nên dưới vỏ DRX là no-op. Đã thêm `DrxHomePage.drxKey` và gọi
 cả hai — chỉ một trong hai đang được dựng nên gọi cả hai là an toàn.
 
-### 12.6 Chưa làm
+### 12.6 Ô peer trên mobile
 
-- Chưa vẽ lại nội dung tab nào. Ba tab vẫn là trang cũ.
+`peer_card.dart` dùng chung với desktop, và hàm vẽ `makeChild()` nằm trên
+`_PeerCardState` — lớp `State` **private**, không kế thừa cũng không override
+được từ ngoài. Nên thay vì sửa thân hàm cho hai bố cục rất khác nhau, nhánh
+mobile portrait **rẽ sớm** sang `DrxPeerTile`; hook trong file upstream chỉ 5
+dòng.
+
+Điều kiện là `isMobile && isPortrait`, không phải chỉ `isPortrait`: cửa sổ
+desktop hẹp cũng báo portrait.
+
+Khác gì so với hàng của upstream:
+
+| | Upstream | DRX |
+| --- | --- | --- |
+| Màu ô nền tảng | `str2color(id + platform)` — **băm từ id máy** | Theo nền tảng; ngoại tuyến thì chuyển xám |
+| Hình ô | Bo góc đều | Vát chéo góc dưới phải, nhắc lại nét X của logo |
+| Chấm trực tuyến | `Colors.green` — 2.6 trên thẻ sáng | `successOf(context)` |
+| Cỡ chữ | `titleSmall` (14) + body mặc định | 12.5 / 10.5 |
+
+Màu băm từ id là chỗ đáng đổi nhất: nó ổn định theo từng máy nhưng **không mang
+nghĩa gì** — hai máy Windows ra hai màu chẳng liên quan, nên danh sách không
+quét mắt được.
+
+### 12.7 Trang Cài đặt
+
+`DrxSettingsPage` là trang mới hoàn toàn; `settings_page.dart` **không bị sửa
+một dòng nào** và vẫn phục vụ vỏ cũ.
+
+**Gom lại theo ý định, không theo module.** Nhóm `Settings` của upstream một
+mình chứa 12 hàng chẳng liên quan — máy chủ relay, proxy, UDP, ngôn ngữ, công
+tắc sáng/tối — nên tìm gì cũng phải đọc hết. Sáu nhóm mới: Kết nối · Chia sẻ
+màn hình · Ứng dụng · Chất lượng hình ảnh · Nâng cao · Giới thiệu, cộng thẻ
+"Thiết bị của bạn" ở đầu.
+
+**Ẩn, không tắt.** 2FA và Recording biến khỏi màn hình theo yêu cầu. Giá trị đã
+lưu **nguyên vẹn**: máy nào đang tự ghi phiên thì vẫn ghi, và giờ không tắt
+được từ trong app. Muốn khoá hẳn thì đặt giá trị trong `custom_defaults.rs` rồi
+ghim bằng `override-settings`.
+
+**Vì sao không dùng lại gói `settings_ui`.** Gói đó không vẽ được thứ thiết kế
+cần: phần Android của nó là dải kín chiều ngang không bo góc, còn thẻ bo góc chỉ
+có ở `DevicePlatform.iOS` — kèm `CupertinoSwitch` và mũi tên iOS. Trên app
+Android, công tắc Material quan trọng hơn cái bo góc, nên **không kiểu nào của
+gói dùng được**. Widget riêng nằm ở `drx/widgets/drx_settings_row.dart`, và nhờ
+đó có thêm: giá trị hiện bên phải hàng điều hướng, mô tả một dòng, và nhãn
+"Rủi ro" cho công tắc duy nhất làm giảm mức bảo mật khi bật.
+
+**Kiểm chứng không mất tính năng.** Đối chiếu tập khoá `kOption*` giữa hai
+trang: đúng 4 khoá vắng mặt, đều thuộc phần bị ẩn.
+
+```
+kOptionAllowAutoRecordIncoming   kOptionEnableRecordSession
+kOptionAllowAutoRecordOutgoing   kOptionEnableTrustedDevices
+```
+
+Mọi guard (`disabledSettings`, `hideSecuritySettings`, `outgoingOnly`,
+`isIncomingOnly`, `isOptionFixed`) bê nguyên.
+
+**Ba thứ phải dựng lại vì private.** `_DisplayPage`,
+`_getPopupDialogRadioEntry`, và cặp `canStartOnBoot` /
+`checkAndUpdateStartOnBoot` — lớp và method private không với tới từ thư viện
+khác. Dựng lại với đúng khoá tuỳ chọn và danh sách giá trị. Còn lại gọi hàm cũ:
+`showServerSettings`, `changeSocks5Proxy`, `showDeployDialog`,
+`showLanguageSettings`, `showThemeSettings`, `changeWhiteList`,
+`changeIdWhiteList`, `loginDialog`, `otherDefaultSettings()`.
+
+Khoá dịch thêm mới: `Application`, `Image quality`, `Advanced`, `Risky`,
+`Copy`, `drx-udp-punch-tip` — thêm vào cả 51 file `src/lang/`.
+
+### 12.8 Link thương hiệu
+
+`translate()` thay chuỗi `"RustDesk"` bằng tên app (`src/lang.rs`), nên tiêu đề
+tự đổi thương hiệu. **URL không phải chuỗi dịch**, nên mọi `rustdesk.com` viết
+cứng sống sót qua đợt rebrand và vẫn dẫn người dùng về trang upstream — kể cả
+hộp thoại Giới thiệu.
+
+Gom vào `drx/drx_links.dart`, thay ở 8 chỗ. Nhãn hiển thị suy ra từ chính URL
+(`Uri.parse(url).host`) để hai thứ không lệch nhau được nữa.
+
+Cố ý **không** thay:
+
+| Nhóm | Vì sao |
+| --- | --- |
+| `rustdesk.com/docs/...` (7 chỗ) | Trỏ tới trang có thật và vẫn đúng cho client này. Đổi là biến trợ giúp đang chạy thành 404. |
+| `admin.rustdesk.com`, `rs-ny.rustdesk.com`, API kiểm tra phiên bản | Mặc định hạ tầng, không phải thương hiệu. |
+| `is_public()` — `src/common.rs:1089` | **Nhận diện máy chủ công cộng bằng chính domain đó.** Đổi là hỏng logic phân biệt self-hosted, thứ chi phối cả `_isUsingPublicServer` lẫn `should_use_raw_tcp_for_api`. |
+| `libs/hbb_common` | Submodule. |
+| `src/ui/*.tis` | Sciter UI, upstream đánh dấu deprecated. |
+
+### 12.9 Chưa làm
 - `chat_model.dart:157` vẫn còn chốt chặn index 1 (chưa cần gỡ, xem 12.5).
-- Ô peer vẫn dùng nguyên `PeerTabPage` / `peer_card.dart`.
+- Vỏ cũ trong `lib/mobile/pages/` giữ nguyên làm đường lui; chỉ xoá sau khi
+  UI mới chạy thật một thời gian trên máy người dùng.
 
 ## 13. Bảng màu tách theo chế độ
 

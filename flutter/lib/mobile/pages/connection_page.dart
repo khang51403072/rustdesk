@@ -9,6 +9,8 @@ import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_hbb/models/peer_model.dart';
+// ===== [DRX CUSTOM] ===== brand links, see CUSTOM_CONFIG.md
+import 'package:flutter_hbb/drx/drx_links.dart';
 
 import '../../common.dart';
 // ===== [DRX CUSTOM] ===== per-theme colours, see CUSTOM_CONFIG.md
@@ -126,7 +128,8 @@ class _ConnectionPageState extends State<ConnectionPage> {
         ? const SizedBox(height: 0)
         : InkWell(
             onTap: () async {
-              final url = 'https://rustdesk.com/download';
+              // [DRX CUSTOM] was https://rustdesk.com/download
+              final url = DrxLinks.download;
               // https://pub.dev/packages/url_launcher#configuration
               // https://developer.android.com/training/package-visibility/use-cases#open-urls-custom-tabs
               //

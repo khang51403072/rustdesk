@@ -12,6 +12,8 @@ import 'package:flutter_hbb/common/formatter/id_formatter.dart';
 import 'package:flutter_hbb/desktop/widgets/refresh_wrapper.dart';
 // ===== [DRX CUSTOM] ===== fork-only brand palette, see CUSTOM_CONFIG.md
 import 'package:flutter_hbb/drx_brand.dart';
+// ===== [DRX CUSTOM] ===== brand links, see CUSTOM_CONFIG.md
+import 'package:flutter_hbb/drx/drx_links.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
 import 'package:flutter_hbb/main.dart';
 import 'package:flutter_hbb/models/peer_model.dart';
@@ -3856,7 +3858,8 @@ Widget loadPowered(BuildContext context) {
     cursor: SystemMouseCursors.click,
     child: GestureDetector(
       onTap: () {
-        launchUrl(Uri.parse('https://rustdesk.com'));
+        // [DRX CUSTOM] was https://rustdesk.com
+        launchUrl(Uri.parse(DrxLinks.home));
       },
       child: Opacity(
           opacity: 0.5,

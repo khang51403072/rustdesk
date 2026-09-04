@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+// ===== [DRX CUSTOM] ===== brand links, see CUSTOM_CONFIG.md
+import 'package:flutter_hbb/drx/drx_links.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
@@ -2502,7 +2504,8 @@ class _AboutState extends State<_About> {
                       .marginSymmetric(vertical: 4.0)),
               InkWell(
                   onTap: () {
-                    launchUrlString('https://galaxyaccess.us/privacy.html');
+                    // [DRX CUSTOM] see drx/drx_links.dart
+                    launchUrlString(DrxLinks.privacy);
                   },
                   child: Text(
                     translate('Privacy Statement'),
@@ -2510,7 +2513,7 @@ class _AboutState extends State<_About> {
                   ).marginSymmetric(vertical: 4.0)),
               InkWell(
                   onTap: () {
-                    launchUrlString('https://galaxyaccess.us');
+                    launchUrlString(DrxLinks.home); // [DRX CUSTOM]
                   },
                   child: Text(
                     translate('Website'),

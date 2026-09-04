@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common/widgets/setting_widgets.dart';
+// ===== [DRX CUSTOM] ===== brand links, see CUSTOM_CONFIG.md
+import 'package:flutter_hbb/drx/drx_links.dart';
 // ===== [DRX CUSTOM] ===== see CUSTOM_CONFIG.md
 import 'package:flutter_hbb/drx/drx_home_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
@@ -38,7 +40,8 @@ class SettingsPage extends StatefulWidget implements PageShape {
   State<SettingsPage> createState() => _SettingsState();
 }
 
-const url = 'https://galaxyaccess.us/';
+// [DRX CUSTOM] see drx/drx_links.dart
+const url = '${DrxLinks.home}/';
 
 enum KeepScreenOn {
   never,
@@ -1142,12 +1145,17 @@ void showAbout(OverlayDialogManager dialogManager) {
         Text('Version: $version'),
         InkWell(
             onTap: () async {
-              const url = 'https://rustdesk.com/';
-              await launchUrl(Uri.parse(url));
+              // [DRX CUSTOM] was https://rustdesk.com/. The dialog title
+              // rebrands itself because translate() swaps "RustDesk" for the
+              // app name, but a URL is not a translated string, so this one
+              // was missed.
+              await launchUrl(Uri.parse(DrxLinks.home));
             },
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('rustdesk.com',
+              // [DRX CUSTOM] label derived from the URL so the two cannot
+              // drift apart again.
+              child: Text(Uri.parse(DrxLinks.home).host,
                   style: TextStyle(
                     decoration: TextDecoration.underline,
                   )),
