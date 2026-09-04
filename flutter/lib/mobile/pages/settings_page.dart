@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common/widgets/setting_widgets.dart';
+// ===== [DRX CUSTOM] ===== see CUSTOM_CONFIG.md
+import 'package:flutter_hbb/drx/drx_home_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
@@ -1075,6 +1077,9 @@ void showLanguageSettings(OverlayDialogManager dialogManager) async {
           });
           await bind.mainSetLocalOption(key: kCommConfKeyLang, value: v);
           HomePage.homeKey.currentState?.refreshPages();
+          // [DRX CUSTOM] the new shell keeps its own tab list, so notify
+          // both; only one of the two is ever mounted.
+          DrxHomePage.drxKey.currentState?.refreshPages();
           Future.delayed(Duration(milliseconds: 200), close);
         }
       }

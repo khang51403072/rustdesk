@@ -4,10 +4,10 @@
 > Mọi thứ nói ở đây là phần chúng ta thêm vào. Khi merge upstream, đây là danh
 > sách những chỗ cần để ý.
 >
-> Doc gồm ba phần: **mục 1–9** là cơ chế đặt giá trị mặc định, **mục 10** là
-> rebrand phía Android, **mục 11** là theme thương hiệu phía Flutter. Ba thứ
-> khác chủ đề nhưng cùng bản chất — code riêng nằm rải trong file của upstream —
-> nên gom chung một chỗ để rà.
+> Doc gồm bốn phần: **mục 1–9** là cơ chế đặt giá trị mặc định, **mục 10** là
+> rebrand phía Android, **mục 11** là theme thương hiệu, **mục 12** là lớp giao
+> diện mobile mới. Bốn thứ khác chủ đề nhưng cùng bản chất — code riêng nằm rải
+> trong file của upstream — nên gom chung một chỗ để rà.
 
 ## 1. Tóm tắt trong 30 giây
 
@@ -461,7 +461,86 @@ grep -n "0xFF18191E\|0xFF24252B" lib/common.dart
 ```
 Ba lệnh trên đúng ra phải **không ra kết quả nào** (trừ comment "was ...").
 
-## 12. Khi merge upstream
+## 12. Lớp giao diện mobile mới
+
+### 12.1 Ý tưởng
+
+Thay vì chép `lib/mobile/pages/` rồi sửa, ta dựng một lớp giao diện **mới hoàn
+toàn** trong `flutter/lib/drx/`. Thư mục này upstream không có nên vĩnh viễn
+không conflict. Cả hai lớp cùng nằm trong một bản build; một cờ quyết định lớp
+nào được dựng.
+
+Lý do không clone: bản chép sẽ không nhận được thay đổi upstream, phải port tay
+từng thứ, hai bản trôi xa dần. Lớp mới chỉ đọc model nên upstream sửa model là
+hưởng luôn.
+
+### 12.2 Cờ `ui`
+
+| | |
+| --- | --- |
+| Khoá | `ui` — nằm ở **cấp cao nhất** tài liệu cấu hình, không nằm trong `default-settings` |
+| Đổ vào | `HARD_SETTINGS` (nhánh "khoá còn lại" của `apply_custom_client_json`) |
+| Đọc từ Dart | `bind.mainGetHardOption(key: 'ui')`, bọc trong `useDrxUi` ở `lib/drx/drx_ui.dart` |
+| Giá trị | bất kỳ (mặc định `"drx"`) → UI mới · `"legacy"` → `HomePage` cũ |
+
+Đặt ở cấp cao nhất là có chủ ý: khoá trong `default-settings` bắt buộc phải có
+tên đăng ký sẵn trong `KEYS_*` của `hbb_common` — mà đó là submodule. Khoá lạ ở
+cấp cao nhất thì không cần đụng submodule.
+
+```bash
+# lùi về UI cũ trên một máy, không cần build lại
+echo '{"ui":"legacy"}' > drx-defaults.json   # đặt vào thư mục dữ liệu app
+```
+
+### 12.3 Bước 1 đã làm gì
+
+Vỏ đã là của mình, **ruột vẫn là trang cũ**. Ba tab trỏ thẳng vào
+`ConnectionPage`, `ServerPage`, `SettingsPage`. Từng tab sẽ thay dần ở các bước
+sau.
+
+| File | Loại | Nội dung |
+| --- | --- | --- |
+| `flutter/lib/drx/drx_ui.dart` | **mới** | Cờ `useDrxUi`. |
+| `flutter/lib/drx/drx_home_page.dart` | **mới** | Vỏ: thanh tiêu đề, thanh dưới 3 tab, khung chứa trang. |
+| `flutter/lib/main.dart` | sửa | Điểm chuyển duy nhất, dòng `home:`. |
+| `flutter/lib/mobile/pages/settings_page.dart` | sửa 1 dòng | Báo cả hai vỏ khi cần dựng lại danh sách tab. |
+| `flutter/lib/mobile/pages/server_page.dart` | sửa 1 chỗ | Nút chat của client: vỏ DRX mở bong bóng thay vì nhảy tab. |
+| `src/custom_defaults.rs` | thêm 1 khoá | `"ui": "drx"`. |
+
+### 12.4 Vì sao bỏ tab Trò chuyện
+
+`ChatModel` đã có sẵn bong bóng chat kéo thả (`showChatIconOverlay()`), tự hiện
+khi có tin nhắn đầu tiên (`chat_model.dart:373`). Code cũ **đã coi tab và bong
+bóng loại trừ nhau**: `showChatIconOverlay()` thoát sớm nếu thanh dưới ở index 1
+(`chat_model.dart:157`), và `home_page.dart:97` ẩn bong bóng khi vào tab chat.
+
+Thêm nữa, tab chat là màn hình chỉ đọc khi không có phiên: ô nhập ở chế độ
+`readOnly` nếu `serverModel.clients` không chứa `currentKey.connId`
+(`chat_page.dart:85`).
+
+### 12.5 Ba cái bẫy đã xử lý
+
+**Ép kiểu `navigationBarKey`.** Chốt chặn ở `chat_model.dart:157` đọc
+`navigationBarKey.currentWidget` rồi ép kiểu sang `BottomNavigationBar`. Vỏ DRX
+**cố ý không gắn** khoá này — gắn vào là ném lỗi vì thanh dưới của ta không phải
+`BottomNavigationBar`. Không gắn thì `currentWidget` là null, chốt bị bỏ qua, và
+bong bóng hiện ở mọi tab. Đúng cái ta cần, lại không phải sửa `chat_model.dart`.
+
+**Nút chat trong `server_page.dart:707`.** Nó gọi `bar.onTap!(1)` để nhảy sang
+tab chat. Dưới vỏ DRX `bar` là null nên nút thành vô tác dụng. Đã rẽ nhánh theo
+`useDrxUi`: vỏ mới mở thẳng `toggleChatOverlay()`.
+
+**`refreshPages()` trong `settings_page.dart:1077`.** Gọi qua
+`HomePage.homeKey` nên dưới vỏ DRX là no-op. Đã thêm `DrxHomePage.drxKey` và gọi
+cả hai — chỉ một trong hai đang được dựng nên gọi cả hai là an toàn.
+
+### 12.6 Chưa làm
+
+- Chưa vẽ lại nội dung tab nào. Ba tab vẫn là trang cũ.
+- `chat_model.dart:157` vẫn còn chốt chặn index 1 (chưa cần gỡ, xem 12.5).
+- Ô peer vẫn dùng nguyên `PeerTabPage` / `peer_card.dart`.
+
+## 13. Khi merge upstream
 
 Các chỗ có thể xung đột:
 
@@ -473,6 +552,8 @@ Các chỗ có thể xung đột:
 | `flutter/android/.../*.kt`, `strings.xml` | Upstream sửa thông báo hoặc menu | Giữ lại `notifyTitle` / `getString(R.string.app_name)`; rà lại bằng lệnh grep ở cuối mục 10. |
 | `libs/hbb_common/src/config.rs` | Upstream đổi tên khoá hoặc `KEYS_*` | Đối chiếu lại `BUILTIN_DEFAULTS`; khoá không còn tồn tại sẽ bị ghi vào cả bốn map. |
 | `flutter/lib/common.dart` | Upstream sửa `MyTheme` / `ColorThemeExtension` | Nhận thay đổi của upstream rồi trỏ lại vào `DrxBrand`; rà bằng ba lệnh grep ở mục 11.7. |
+| `flutter/lib/main.dart` | Upstream sửa cây widget gốc | Giữ nhánh `useDrxUi ? DrxHomePage() : HomePage()` ở dòng `home:`. |
+| `flutter/lib/mobile/pages/server_page.dart`, `settings_page.dart` | Upstream sửa quanh chỗ ta rẽ nhánh | Giữ hai móc `[DRX CUSTOM]` ở mục 12.5. |
 
 Nếu upstream tự sửa lỗi `is_public` ở mục 8, cấu hình của ta vẫn đúng — chỉ là
 lúc đó nó trở thành dư thừa cho hai khoá punch, không gây hại.

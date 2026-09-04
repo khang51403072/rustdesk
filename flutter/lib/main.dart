@@ -10,6 +10,9 @@ import 'package:flutter_hbb/common/widgets/overlay.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
 import 'package:flutter_hbb/desktop/pages/install_page.dart';
 import 'package:flutter_hbb/desktop/pages/server_page.dart';
+// ===== [DRX CUSTOM] ===== new mobile UI layer, see CUSTOM_CONFIG.md
+import 'package:flutter_hbb/drx/drx_home_page.dart';
+import 'package:flutter_hbb/drx/drx_ui.dart';
 import 'package:flutter_hbb/desktop/screen/desktop_file_transfer_screen.dart';
 import 'package:flutter_hbb/desktop/screen/desktop_view_camera_screen.dart';
 import 'package:flutter_hbb/desktop/screen/desktop_port_forward_screen.dart';
@@ -510,7 +513,13 @@ class _AppState extends State<App> with WidgetsBindingObserver {
               ? const DesktopTabPage()
               : isWeb
                   ? WebHomePage()
-                  : HomePage(),
+                  // ===== [DRX CUSTOM] ===== the one place the two mobile UI
+                  // layers are chosen between. The `ui` flag is read from
+                  // HARD_SETTINGS; setting it to "legacy" restores the old
+                  // `HomePage` without a rebuild.
+                  : (useDrxUi
+                      ? DrxHomePage(key: DrxHomePage.drxKey)
+                      : HomePage()),
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,

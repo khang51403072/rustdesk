@@ -50,6 +50,11 @@ pub const DEVICE_CONFIG_FILE_NAME: &str = "drx-defaults.json";
 /// }
 /// ```
 ///
+/// Top-level keys that are not `app-name` / `default-settings` /
+/// `override-settings` land in `HARD_SETTINGS` and are read from Dart with
+/// `bind.mainGetHardOption`. That is how the fork-only `ui` key works without
+/// having to register a name inside the hbb_common submodule.
+///
 /// Keys are written in dash form; the loader matches them against
 /// `KEYS_LOCAL_SETTINGS`, `KEYS_SETTINGS`, `KEYS_DISPLAY_SETTINGS` and
 /// `KEYS_BUILDIN_SETTINGS` after normalising `_` to `-`.
@@ -61,6 +66,7 @@ pub const DEVICE_CONFIG_FILE_NAME: &str = "drx-defaults.json";
 /// can still switch to light or system in Settings.
 /// Rationale for each key is in CUSTOM_CONFIG.md.
 pub const BUILTIN_DEFAULTS: &str = r#"{
+  "ui": "drx",
   "default-settings": {
     "theme": "dark",
     "enable-udp-punch": "Y",

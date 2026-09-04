@@ -60,6 +60,10 @@
 * Do not refactor unrelated code.
 * Do not make formatting-only changes.
 * Keep naming/style consistent with nearby code.
+* Write all code comments in English, including comments in Vietnamese-facing
+  forks. The codebase is shared with upstream and read by non-Vietnamese
+  speakers; user-facing strings still go through `translate()` / `src/lang/`,
+  and Vietnamese belongs in project docs, not in source comments.
 
 ### Be minimally invasive
 

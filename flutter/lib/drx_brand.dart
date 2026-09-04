@@ -99,7 +99,7 @@ class DrxBrand {
   // ---------------------------------------------------------------- semantic
   // Not brand-owned on purpose — see the header note.
 
-  /// "Connected" / "Đủ công"-style affirmative state.
+  /// Affirmative state: connected, service running, permission granted.
   static const Color success = Color(0xFF22C55E);
 
   /// Decorative gradient on the connection-manager header

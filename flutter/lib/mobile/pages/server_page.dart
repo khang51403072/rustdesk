@@ -11,6 +11,8 @@ import 'package:provider/provider.dart';
 import '../../common.dart';
 // ===== [DRX CUSTOM] ===== brand palette, see CUSTOM_CONFIG.md
 import '../../drx_brand.dart';
+// ===== [DRX CUSTOM] ===== UI layer flag, see CUSTOM_CONFIG.md
+import '../../drx/drx_ui.dart';
 import '../../common/widgets/dialog.dart';
 import '../../consts.dart';
 import '../../models/platform_model.dart';
@@ -704,10 +706,21 @@ class ConnectionManager extends StatelessWidget {
                                   onPressed: () {
                                     gFFI.chatModel.changeCurrentKey(
                                         MessageKey(client.peerId, client.id));
-                                    final bar = navigationBarKey.currentWidget;
-                                    if (bar != null) {
-                                      bar as BottomNavigationBar;
-                                      bar.onTap!(1);
+                                    // ===== [DRX CUSTOM] =====
+                                    // The DRX shell has no chat tab and
+                                    // deliberately leaves `navigationBarKey`
+                                    // unattached, so jumping to a tab index is
+                                    // meaningless there — open the chat overlay
+                                    // instead. The legacy shell keeps jumping.
+                                    if (useDrxUi) {
+                                      gFFI.chatModel.toggleChatOverlay();
+                                    } else {
+                                      final bar =
+                                          navigationBarKey.currentWidget;
+                                      if (bar != null) {
+                                        bar as BottomNavigationBar;
+                                        bar.onTap!(1);
+                                      }
                                     }
                                   },
                                   icon: unreadTopRightBuilder(
