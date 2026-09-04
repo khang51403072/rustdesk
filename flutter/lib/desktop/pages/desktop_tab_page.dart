@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
+// ===== [DRX CUSTOM] =====
+import 'package:flutter_hbb/drx/desktop/drx_desktop_home_page.dart';
+import 'package:flutter_hbb/drx/drx_ui.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
@@ -49,9 +52,13 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
         selectedIcon: Icons.home_sharp,
         unselectedIcon: Icons.home_outlined,
         closable: false,
-        page: DesktopHomePage(
-          key: const ValueKey(kTabLabelHomePage),
-        )));
+        // ===== [DRX CUSTOM] ===== the new desktop home lives behind the same
+        // `ui` flag as the mobile one; see drx/drx_ui.dart.
+        page: useDrxUi
+            ? const DrxDesktopHomePage(key: ValueKey(kTabLabelHomePage))
+            : DesktopHomePage(
+                key: const ValueKey(kTabLabelHomePage),
+              )));
     if (bind.isIncomingOnly()) {
       tabController.onSelected = (key) {
         if (key == kTabLabelHomePage) {
