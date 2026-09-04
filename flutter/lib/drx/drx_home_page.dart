@@ -31,7 +31,7 @@ import '../common.dart';
 import '../drx_brand.dart';
 import 'drx_connect_page.dart';
 import '../mobile/pages/home_page.dart' show PageShape;
-import '../mobile/pages/server_page.dart';
+import 'drx_share_page.dart';
 import '../mobile/pages/settings_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -106,7 +106,8 @@ class DrxHomePageState extends State<DrxHomePage> {
       ));
     }
     if (isAndroid && !bind.isOutgoingOnly()) {
-      _pages.add(ServerPage());
+      // [DRX CUSTOM] step 3 replaced this tab's contents.
+      _pages.add(DrxSharePage());
       _navItems.add(const _NavItem(
         label: 'Share screen',
         // A phone with a share arrow, not a monitor: what this tab shares is
