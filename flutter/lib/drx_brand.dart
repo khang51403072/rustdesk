@@ -79,6 +79,10 @@ class DrxBrand {
   /// reads as "brand" rather than as "disabled".
   static const Color darkSelected = Color(0xFF1B3350);
 
+  /// App bar and bottom navigation. Chrome sits one step above the page but
+  /// below a card, so it reads as a frame rather than as content.
+  static const Color darkAppBar = Color(0xFF161D27);
+
   /// Hairlines between sections on dark. Upstream: 0xFF555555.
   static const Color darkBorder = Color(0xFF2C3543);
 
@@ -89,12 +93,67 @@ class DrxBrand {
   /// Panel / card background on light. Upstream: 0xFFEFEFF2.
   static const Color lightSurface = Color(0xFFEFF2F7);
 
+  /// App bar and bottom navigation on light. Plain white so the chrome reads
+  /// as a frame around the slightly tinted cards.
+  static const Color lightAppBar = Color(0xFFFFFFFF);
+
   /// Hairlines on light. Upstream: 0xFFCCCCCC.
   static const Color lightBorder = Color(0xFFCFD6E0);
 
   // ------------------------------------------------------------------ neutral
   /// Secondary text and inactive icons, on either theme.
   static const Color muted = Color(0xFF94A3B3);
+
+  // ------------------------------------------------------------- per-theme
+  // These have no single value: the same hue has to sit at a different
+  // lightness on white than it does on the dark ramp, or one of the two fails
+  // contrast. `MyTheme.accent` cannot express that — it is a `static const`, so
+  // it has no idea which theme is live. Until that is reworked, widgets that
+  // need a theme-correct value pick from the pairs below via [onDark].
+
+  /// Action blue: buttons, links, the selected tab. `MyTheme.accent` is a
+  /// single value used on both grounds and only reaches 2.9 on white — below
+  /// the 4.5 needed to read — so anything drawn by this fork uses [accentOf]
+  /// instead. Replacing `MyTheme.accent` itself would touch ~87 call sites
+  /// across mobile and desktop, so it is a separate job.
+  static const Color accentOnLight = Color(0xFF1459C0); // 6.5 on white
+  static const Color accentOnDark = Color(0xFF5FB8FF); // 7.9 on darkAppBar
+
+  /// Secondary text and inactive icons. `muted` is likewise a single value and
+  /// only reaches 2.6 on white.
+  static const Color mutedOnLight = Color(0xFF606F82); // 5.1 on white
+  static const Color mutedOnDark = Color(0xFF93A4B8); // 6.7 on darkAppBar
+
+  /// Identity blue: the peer ID, QR codes, the platform badge. Deliberately
+  /// distinct from the action blue — one says "which machine", the other says
+  /// "tap me".
+  static const Color identityOnLight = Color(0xFF0B6E8F); // 5.8 on white
+  static const Color identityOnDark = Color(0xFF4FD3F5); // 10.6 on darkBg
+
+  /// The primary-action gradient, taken from the darker half of the logo's
+  /// sweep. The bright cyan end cannot carry white text — it only reaches 2.0 —
+  /// so a gradient that sits under a label is built from these two instead.
+  static const Color actionGradientStart = Color(0xFF2170CE); // white: 4.9
+  static const Color actionGradientEnd = Color(0xFF16409E);
+
+  /// Pick the dark-theme value when [dark] is true.
+  static Color onDark(bool dark, Color light, Color darkValue) =>
+      dark ? darkValue : light;
+
+  static bool _isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  /// Action blue for the live theme.
+  static Color accentOf(BuildContext context) =>
+      _isDark(context) ? accentOnDark : accentOnLight;
+
+  /// Identity blue for the live theme.
+  static Color identityOf(BuildContext context) =>
+      _isDark(context) ? identityOnDark : identityOnLight;
+
+  /// Secondary text / inactive icon colour for the live theme.
+  static Color mutedOf(BuildContext context) =>
+      _isDark(context) ? mutedOnDark : mutedOnLight;
 
   // ---------------------------------------------------------------- semantic
   // Not brand-owned on purpose — see the header note.

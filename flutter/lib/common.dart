@@ -388,8 +388,23 @@ class MyTheme {
     hoverColor: Color.fromARGB(255, 224, 224, 224),
     scaffoldBackgroundColor: Colors.white,
     dialogBackgroundColor: Colors.white,
+    // [DRX CUSTOM] upstream leaves the app bar unstyled, so it falls back to
+    // `colorScheme.primary` — a solid blue slab with white text. Make it part
+    // of the page instead: same ground as the scaffold, real text colour, and
+    // a hairline to separate it from the content.
     appBarTheme: AppBarTheme(
       shadowColor: Colors.transparent,
+      backgroundColor: DrxBrand.lightAppBar,
+      foregroundColor: Colors.black87,
+      elevation: 0,
+      iconTheme: IconThemeData(color: Colors.black87),
+      titleTextStyle: TextStyle(
+        color: Colors.black87,
+        fontSize: 17,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.2,
+      ),
+      shape: Border(bottom: BorderSide(color: DrxBrand.lightBorder)),
     ),
     dialogTheme: DialogTheme(
       elevation: 15,
@@ -491,8 +506,20 @@ class MyTheme {
     hoverColor: DrxBrand.darkHover,
     scaffoldBackgroundColor: DrxBrand.darkBg,
     dialogBackgroundColor: DrxBrand.darkBg,
+    // [DRX CUSTOM] see the light theme's note.
     appBarTheme: AppBarTheme(
       shadowColor: Colors.transparent,
+      backgroundColor: DrxBrand.darkAppBar,
+      foregroundColor: Colors.white,
+      elevation: 0,
+      iconTheme: IconThemeData(color: Colors.white70),
+      titleTextStyle: TextStyle(
+        color: Colors.white,
+        fontSize: 17,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.2,
+      ),
+      shape: Border(bottom: BorderSide(color: DrxBrand.darkBorder)),
     ),
     dialogTheme: DialogTheme(
       elevation: 15,

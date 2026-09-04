@@ -28,7 +28,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 
 import '../common.dart';
-import '../mobile/pages/connection_page.dart';
+import '../drx_brand.dart';
+import 'drx_connect_page.dart';
 import '../mobile/pages/home_page.dart' show PageShape;
 import '../mobile/pages/server_page.dart';
 import '../mobile/pages/settings_page.dart';
@@ -95,7 +96,9 @@ class DrxHomePageState extends State<DrxHomePage> {
     // Same conditions as the old `HomePage`, so outgoing-only and
     // incoming-only builds still end up with the right set of tabs.
     if (!bind.isIncomingOnly()) {
-      _pages.add(ConnectionPage(appBarActions: []));
+      // [DRX CUSTOM] step 2 replaced this tab's contents; the other two
+      // still point at the legacy pages.
+      _pages.add(DrxConnectPage());
       _navItems.add(const _NavItem(
         label: 'Connection',
         outlined: Icons.desktop_windows_outlined,
@@ -106,8 +109,11 @@ class DrxHomePageState extends State<DrxHomePage> {
       _pages.add(ServerPage());
       _navItems.add(const _NavItem(
         label: 'Share screen',
-        outlined: Icons.screen_share_outlined,
-        filled: Icons.screen_share,
+        // A phone with a share arrow, not a monitor: what this tab shares is
+        // *this* device's screen. `server_page.dart` already uses the filled
+        // form for the same idea.
+        outlined: Icons.mobile_screen_share_outlined,
+        filled: Icons.mobile_screen_share,
       ));
     }
     _pages.add(SettingsPage());
@@ -173,7 +179,12 @@ class DrxHomePageState extends State<DrxHomePage> {
     final selected = index == _selected;
     // Outlined when idle, filled when selected: the current tab stays
     // recognisable at a glance and in glare, not by colour alone.
-    final color = selected ? MyTheme.accent : MyTheme.darkGray;
+    //
+    // Colours come from DrxBrand rather than `MyTheme.accent` / `darkGray`,
+    // which are single values shared by both themes and fall to 2.9 and 2.6 on
+    // a white bar — under the 4.5 needed to read.
+    final color =
+        selected ? DrxBrand.accentOf(context) : DrxBrand.mutedOf(context);
     return InkWell(
       onTap: () => setState(() => _selected = index),
       child: Padding(

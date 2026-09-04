@@ -16,6 +16,8 @@ import 'package:flutter_hbb/models/ab_model.dart';
 import 'package:flutter_hbb/models/peer_model.dart';
 
 import 'package:flutter_hbb/models/peer_tab_model.dart';
+// ===== [DRX CUSTOM] ===== see CUSTOM_CONFIG.md
+import 'package:flutter_hbb/drx_brand.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
@@ -35,6 +37,32 @@ class _TabEntry {
   final Widget widget;
   final Function({dynamic hint})? load;
   _TabEntry(this.widget, [this.load]);
+}
+
+// ===== [DRX CUSTOM] =====
+// Outlined when idle, filled when selected — the state signal the DRX design
+// language uses everywhere. `PeerTabModel.icons` cannot express that: it holds
+// one icon per tab, all of them already filled, so on mobile the current tab
+// looks the same as the rest apart from its underline. Two of upstream's five
+// are custom `IconFont` glyphs with no outlined twin, so the mobile strip maps
+// to Material equivalents instead. Desktop keeps `PeerTabModel.icons`.
+//
+// Indexed by `PeerTabIndex`: recent, fav, lan, ab, group.
+const List<List<IconData>> _kDrxMobileTabIcons = [
+  [Icons.schedule, Icons.access_time_filled],
+  [Icons.star_border, Icons.star],
+  [Icons.explore_outlined, Icons.explore],
+  [Icons.contacts_outlined, Icons.contacts],
+  [Icons.group_outlined, Icons.group],
+];
+
+/// The glyph for tab [index] in the given state, falling back to upstream's
+/// list for anything the table above does not cover.
+IconData _drxTabIcon(PeerTabModel model, int index, bool selected) {
+  if (!isMobile || index < 0 || index >= _kDrxMobileTabIcons.length) {
+    return model.tabIcon(index);
+  }
+  return _kDrxMobileTabIcons[index][selected ? 1 : 0];
 }
 
 EdgeInsets? _menuPadding() {
@@ -144,8 +172,15 @@ class _PeerTabPageState extends State<PeerTabPage>
         physics: NeverScrollableScrollPhysics(),
         children: model.visibleEnabledOrderedIndexs.map((t) {
           final selected = model.currentTab == t;
+          // ===== [DRX CUSTOM] =====
+          // On mobile this strip is icon-only, so the selected state has to
+          // carry the brand colour. `selectedTextColor` is near-black because
+          // on desktop it colours tab *labels*; using it here leaves the
+          // current tab looking the same as the rest. Desktop is untouched.
           final color = selected
-              ? MyTheme.tabbar(context).selectedTextColor
+              ? (isMobile
+                  ? DrxBrand.accentOf(context)
+                  : MyTheme.tabbar(context).selectedTextColor)
               : MyTheme.tabbar(context).unSelectedTextColor
             ?..withOpacity(0.5);
           final hover = false.obs;
@@ -169,7 +204,9 @@ class _PeerTabPageState extends State<PeerTabPage>
                         decoration: (hover.value
                             ? (selected ? decoBorder : deco)
                             : (selected ? decoBorder : null)),
-                        child: Icon(model.tabIcon(t), color: color)
+                        // [DRX CUSTOM] was `model.tabIcon(t)`.
+                        child: Icon(_drxTabIcon(model, t, selected),
+                                color: color)
                             .paddingSymmetric(horizontal: 4),
                       ).paddingSymmetric(horizontal: 4),
                       onTap: isOptionFixed(kOptionPeerTabIndex)
