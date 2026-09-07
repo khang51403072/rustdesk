@@ -1,0 +1,232 @@
+# Azure Pipelines equivalent of .github/workflows/build-windows-only.yml
+# (that GitHub Actions file does NOT run here because this repo's remote is Azure DevOps, not GitHub)
+#
+# First-time setup required in the Azure DevOps portal:
+#   Pipelines -> New Pipeline -> Azure Repos Git -> this repo -> "Existing Azure Pipelines YAML file" -> /azure-pipelines.yml
+
+trigger:
+  branches:
+    include:
+      - master
+      - main
+      - custom
+  paths:
+    exclude:
+      - '**/*.md'
+      - '.gitignore'
+
+variables:
+  RUST_VERSION: '1.75'
+  LLVM_VERSION: '15.0.6'
+  WIN_FLUTTER_VERSION: '3.24.5'
+  BRIDGE_FLUTTER_VERSION: '3.22.3'
+  FLUTTER_RUST_BRIDGE_VERSION: '1.80.1'
+  CARGO_EXPAND_VERSION: '1.0.95'
+  VCPKG_COMMIT_ID: '120deac3062162151622ca4860575a33844ba10b'
+  VCPKG_DEFAULT_HOST_TRIPLET: 'x64-windows-static'
+  APP_VERSION: '1.4.6-custom'
+
+stages:
+  # ============================================================
+  # Stage 1: generate flutter_rust_bridge glue code (Linux)
+  # ============================================================
+  - stage: Bridge
+    dependsOn: []
+    jobs:
+      - job: generate_bridge
+        pool:
+          vmImage: 'ubuntu-22.04'
+        steps:
+          - checkout: self
+            submodules: recursive
+
+          - script: |
+              sudo apt-get update -y
+              sudo apt-get install -y \
+                clang cmake curl gcc git g++ libclang-dev libgtk-3-dev \
+                llvm-dev nasm ninja-build pkg-config wget
+            displayName: 'Install prerequisites'
+
+          - script: |
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain $(RUST_VERSION)
+              echo "##vso[task.prependpath]$HOME/.cargo/bin"
+            displayName: 'Install Rust toolchain'
+
+          - script: |
+              git clone https://github.com/flutter/flutter.git -b $(BRIDGE_FLUTTER_VERSION) --depth 1 $(Agent.ToolsDirectory)/flutter-bridge
+              echo "##vso[task.prependpath]$(Agent.ToolsDirectory)/flutter-bridge/bin"
+            displayName: 'Install Flutter (bridge SDK)'
+
+          - script: |
+              cargo install cargo-expand --version $(CARGO_EXPAND_VERSION) --locked
+              cargo install flutter_rust_bridge_codegen --version $(FLUTTER_RUST_BRIDGE_VERSION) --features "uuid" --locked
+              pushd flutter && sed -i -e 's/extended_text: 14.0.0/extended_text: 13.0.0/g' pubspec.yaml && flutter pub get && popd
+            displayName: 'Install flutter_rust_bridge deps'
+
+          - script: |
+              ~/.cargo/bin/flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/macos/Runner/bridge_generated.h
+              cp ./flutter/macos/Runner/bridge_generated.h ./flutter/ios/Runner/bridge_generated.h
+            displayName: 'Run flutter_rust_bridge codegen'
+
+          - script: |
+              mkdir -p $(Build.ArtifactStagingDirectory)/bridge/src
+              mkdir -p $(Build.ArtifactStagingDirectory)/bridge/flutter/lib
+              mkdir -p $(Build.ArtifactStagingDirectory)/bridge/flutter/macos/Runner
+              mkdir -p $(Build.ArtifactStagingDirectory)/bridge/flutter/ios/Runner
+              cp ./src/bridge_generated.rs $(Build.ArtifactStagingDirectory)/bridge/src/ 2>/dev/null || true
+              cp ./src/bridge_generated.io.rs $(Build.ArtifactStagingDirectory)/bridge/src/ 2>/dev/null || true
+              cp ./flutter/lib/generated_bridge.dart $(Build.ArtifactStagingDirectory)/bridge/flutter/lib/
+              cp ./flutter/lib/generated_bridge.freezed.dart $(Build.ArtifactStagingDirectory)/bridge/flutter/lib/ 2>/dev/null || true
+              cp ./flutter/macos/Runner/bridge_generated.h $(Build.ArtifactStagingDirectory)/bridge/flutter/macos/Runner/
+              cp ./flutter/ios/Runner/bridge_generated.h $(Build.ArtifactStagingDirectory)/bridge/flutter/ios/Runner/
+            displayName: 'Stage bridge artifacts (preserve relative paths)'
+
+          - publish: $(Build.ArtifactStagingDirectory)/bridge
+            artifact: bridge-artifact
+
+  # ============================================================
+  # Stage 2: build RustDeskTempTopMostWindow.dll (Windows)
+  # ============================================================
+  - stage: TopMostWindow
+    dependsOn: []
+    jobs:
+      - job: build_topmostwindow
+        pool:
+          vmImage: 'windows-2022'
+        variables:
+          project_path: 'WindowInjection/WindowInjection.vcxproj'
+        steps:
+          - script: |
+              git clone https://github.com/rustdesk-org/RustDeskTempTopMostWindow RustDeskTempTopMostWindow
+              cd RustDeskTempTopMostWindow && git checkout 53b548a5398624f7149a382000397993542ad796
+            displayName: 'Download RustDeskTempTopMostWindow source'
+
+          - task: VSBuild@1
+            displayName: 'Build WindowInjection.dll'
+            inputs:
+              solution: 'RustDeskTempTopMostWindow/$(project_path)'
+              platform: 'x64'
+              configuration: 'Release'
+              msbuildArgs: '/p:TargetVersion=Windows10'
+
+          - publish: 'RustDeskTempTopMostWindow/WindowInjection/x64/Release/WindowInjection.dll'
+            artifact: topmostwindow-artifacts
+
+  # ============================================================
+  # Stage 3: main Windows build, depends on the two stages above
+  # ============================================================
+  - stage: BuildWindows
+    dependsOn:
+      - Bridge
+      - TopMostWindow
+    jobs:
+      - job: build_windows
+        pool:
+          vmImage: 'windows-2022'
+        timeoutInMinutes: 180
+        steps:
+          - checkout: self
+            submodules: recursive
+
+          - download: current
+            artifact: bridge-artifact
+          - powershell: |
+              Copy-Item -Recurse -Force "$(Pipeline.Workspace)/bridge-artifact/*" "$(Build.SourcesDirectory)/"
+            displayName: 'Restore bridge files'
+
+          - powershell: |
+              Invoke-WebRequest -Uri "https://github.com/llvm/llvm-project/releases/download/llvmorg-$(LLVM_VERSION)/LLVM-$(LLVM_VERSION)-win64.exe" -OutFile llvm-installer.exe
+              Start-Process -FilePath .\llvm-installer.exe -ArgumentList "/S" -Wait
+              echo "##vso[task.prependpath]C:\Program Files\LLVM\bin"
+              echo "##vso[task.setvariable variable=LIBCLANG_PATH]C:\Program Files\LLVM\bin"
+            displayName: 'Install LLVM and Clang'
+
+          - powershell: |
+              $flutterRoot = "$(Agent.ToolsDirectory)\flutter"
+              git clone https://github.com/flutter/flutter.git -b $(WIN_FLUTTER_VERSION) --depth 1 $flutterRoot
+              echo "##vso[task.prependpath]$flutterRoot\bin"
+              echo "##vso[task.setvariable variable=FLUTTER_ROOT]$flutterRoot"
+            displayName: 'Install Flutter (Windows SDK)'
+
+          - powershell: |
+              flutter doctor -v
+              flutter precache --windows
+              Invoke-WebRequest -Uri https://github.com/rustdesk/engine/releases/download/main/windows-x64-release.zip -OutFile windows-x64-release.zip
+              Expand-Archive -Path windows-x64-release.zip -DestinationPath windows-x64-release
+              $engineDir = "$(FLUTTER_ROOT)\bin\cache\artifacts\engine\windows-x64-release"
+              New-Item -ItemType Directory -Force -Path $engineDir | Out-Null
+              Move-Item -Force windows-x64-release\* $engineDir
+            displayName: 'Replace engine with rustdesk custom flutter engine'
+
+          - bash: |
+              cp .github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff "$FLUTTER_ROOT"
+              cd "$FLUTTER_ROOT"
+              [[ "3.24.5" == "$(WIN_FLUTTER_VERSION)" ]] && git apply flutter_3.24.4_dropdown_menu_enableFilter.diff
+            displayName: 'Patch flutter'
+
+          - powershell: |
+              rustup toolchain install $(RUST_VERSION)-x86_64-pc-windows-msvc
+              rustup default $(RUST_VERSION)-x86_64-pc-windows-msvc
+              rustup component add rustfmt
+              rustup target add x86_64-pc-windows-msvc
+            displayName: 'Install Rust toolchain'
+
+          - powershell: |
+              git clone https://github.com/microsoft/vcpkg C:\vcpkg
+              cd C:\vcpkg
+              git checkout $(VCPKG_COMMIT_ID)
+              .\bootstrap-vcpkg.bat
+              echo "##vso[task.setvariable variable=VCPKG_ROOT]C:\vcpkg"
+            displayName: 'Install vcpkg'
+
+          - bash: |
+              if ! $VCPKG_ROOT/vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed"; then
+                find "${VCPKG_ROOT}/" -name "*.log" | while read -r _1; do
+                  echo "$_1:"; cat "$_1"; echo ""
+                done
+                exit 1
+              fi
+            displayName: 'Install vcpkg dependencies (libvpx, libyuv, opus, aom)'
+
+          - powershell: |
+              python3 .\build.py --portable --hwcodec --flutter --vram --skip-portable-pack
+              Move-Item -Force .\flutter\build\windows\x64\runner\Release .\rustdesk
+
+              Invoke-WebRequest -Uri https://github.com/rustdesk-org/rdev/releases/download/usbmmidd_v2/usbmmidd_v2.zip -OutFile usbmmidd_v2.zip
+              Expand-Archive usbmmidd_v2.zip -DestinationPath .
+              Remove-Item -Path usbmmidd_v2\Win32 -Recurse
+              Remove-Item -Path "usbmmidd_v2\deviceinstaller64.exe", "usbmmidd_v2\deviceinstaller.exe", "usbmmidd_v2\usbmmidd.bat"
+              Move-Item -Force .\usbmmidd_v2 .\rustdesk
+            displayName: 'Build rustdesk'
+
+          - bash: |
+              runner_res=$(find . -name "Runner.res")
+              if [ -n "$runner_res" ]; then
+                cp "$runner_res" ./libs/portable/Runner.res
+              fi
+            displayName: 'Find Runner.res'
+            continueOnError: true
+
+          - download: current
+            artifact: topmostwindow-artifacts
+          - powershell: |
+              Copy-Item -Force "$(Pipeline.Workspace)/topmostwindow-artifacts/WindowInjection.dll" ".\rustdesk\"
+            displayName: 'Copy RustDeskTempTopMostWindow.dll into build output'
+
+          - publish: 'rustdesk'
+            artifact: 'rustdesk-windows-x86_64-folder'
+            displayName: 'Upload unsigned folder (for debug)'
+
+          - bash: |
+              sed -i '/dpiAware/d' res/manifest.xml
+              pushd ./libs/portable
+              pip3 install -r requirements.txt
+              python3 ./generate.py -f ../../rustdesk/ -o . -e ../../rustdesk/rustdesk.exe
+              popd
+              mkdir -p ./output
+              mv ./target/release/rustdesk-portable-packer.exe ./output/rustdesk-$(APP_VERSION)-x86_64.exe
+            displayName: 'Build self-extracted executable'
+
+          - publish: 'output/rustdesk-$(APP_VERSION)-x86_64.exe'
+            artifact: 'rustdesk-$(APP_VERSION)-x86_64-exe'
+            displayName: 'Upload final .exe'
