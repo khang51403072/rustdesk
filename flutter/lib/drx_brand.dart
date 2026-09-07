@@ -147,6 +147,30 @@ class DrxBrand {
   static bool _isDark(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark;
 
+  // ------------------------------------------------------------ elevation
+  // The dark theme has a three-step ramp — page, chrome, card — and the light
+  // theme has none: `scaffoldBackgroundColor` and the app bar are both white
+  // while `cardColor` is the tinted `lightSurface`, so a card comes out DARKER
+  // than the page it sits on and the whole window flattens into one value.
+  //
+  // These three invert that for light without touching `MyTheme`, which every
+  // upstream page reads: the ground carries the tint, the card is white, and
+  // the ramp reads the same way in both themes — card lighter than ground.
+
+  /// The surface a card is drawn on.
+  static Color cardOf(BuildContext context) =>
+      _isDark(context) ? darkSurface : Colors.white;
+
+  /// The ground a card sits on: page background, and the fill of an input that
+  /// should look inset into a card.
+  static Color groundOf(BuildContext context) =>
+      _isDark(context) ? darkBg : lightSurface;
+
+  /// Window chrome — the sidebar, the status bar. One step off the ground on
+  /// dark; the same as the ground on light, where a hairline does the work.
+  static Color chromeOf(BuildContext context) =>
+      _isDark(context) ? darkAppBar : lightSurface;
+
   /// Action blue for the live theme.
   static Color accentOf(BuildContext context) =>
       _isDark(context) ? accentOnDark : accentOnLight;
