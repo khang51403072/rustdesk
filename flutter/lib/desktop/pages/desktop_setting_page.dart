@@ -6,6 +6,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 // ===== [DRX CUSTOM] ===== brand links, see CUSTOM_CONFIG.md
 import 'package:flutter_hbb/drx/drx_links.dart';
+import 'package:flutter_hbb/drx/desktop/drx_settings_style.dart';
+import 'package:flutter_hbb/drx_brand.dart';
+import 'package:flutter_hbb/drx/drx_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
@@ -294,7 +297,11 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
           const VerticalDivider(width: 1),
           Expanded(
             child: Container(
-              color: Theme.of(context).scaffoldBackgroundColor,
+              // ===== [DRX CUSTOM] ===== white cards need a tinted ground; the
+              // scaffold is white on light, which would hide them.
+              color: useDrxUi
+                  ? DrxBrand.groundOf(context)
+                  : Theme.of(context).scaffoldBackgroundColor,
               child: PageView(
                 controller: controller,
                 physics: NeverScrollableScrollPhysics(),
@@ -357,6 +364,31 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
   Widget _listItem({required _TabInfo tab}) {
     return Obx(() {
       bool selected = tab.key == selectedTab.value;
+      onTap() {
+        if (selectedTab.value != tab.key) {
+          int index = DesktopSettingPage.tabKeys.indexOf(tab.key);
+          if (index == -1) {
+            return;
+          }
+          controller.jumpToPage(index);
+        }
+        selectedTab.value = tab.key;
+      }
+
+      // ===== [DRX CUSTOM] ===== a filled row instead of the 4px edge bar, so
+      // selection reads the same here as on the home screen's peer tabs.
+      if (useDrxUi) {
+        return Builder(
+          builder: (context) => drxSettingsNavItem(
+            context: context,
+            label: translate(tab.label),
+            icon: selected ? tab.selected : tab.unselected,
+            selected: selected,
+            onTap: onTap,
+            height: _kTabHeight,
+          ),
+        );
+      }
       return SizedBox(
         width: _kTabWidth,
         height: _kTabHeight,
@@ -937,10 +969,20 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
         child: InkWell(
           child: Obx(() => Row(
                 children: [
-                  Checkbox(
-                          value: has2fa.value,
-                          onChanged: enabled ? onChanged : null)
-                      .marginOnly(right: 5),
+                  // ===== [DRX CUSTOM] ===== not built by `_OptionCheckBox`,
+                  // so it needs the same swap to match the rows around it.
+                  if (useDrxUi)
+                    DrxOptionSwitch(
+                      value: has2fa.value,
+                      onChanged: enabled
+                          ? (v) => onChanged(v)
+                          : null,
+                    ).marginOnly(right: 10)
+                  else
+                    Checkbox(
+                            value: has2fa.value,
+                            onChanged: enabled ? onChanged : null)
+                        .marginOnly(right: 5),
                   Expanded(
                       child: Text(
                     translate('enable-2fa-title'),
@@ -1223,14 +1265,23 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
             child: InkWell(
                 child: Row(
               children: [
-                Checkbox(
-                        value: model.allowNumericOneTimePassword,
-                        onChanged: isNumOPTChangable
-                            ? (bool? v) {
-                                model.switchAllowNumericOneTimePassword();
-                              }
-                            : null)
-                    .marginOnly(right: 5),
+                // ===== [DRX CUSTOM] ===== see the note on the 2FA row.
+                if (useDrxUi)
+                  DrxOptionSwitch(
+                    value: model.allowNumericOneTimePassword,
+                    onChanged: isNumOPTChangable
+                        ? (_) => model.switchAllowNumericOneTimePassword()
+                        : null,
+                  ).marginOnly(right: 10)
+                else
+                  Checkbox(
+                          value: model.allowNumericOneTimePassword,
+                          onChanged: isNumOPTChangable
+                              ? (bool? v) {
+                                  model.switchAllowNumericOneTimePassword();
+                                }
+                              : null)
+                      .marginOnly(right: 5),
                 Expanded(
                     child: Text(
                   translate('Numeric one-time password'),
@@ -2519,33 +2570,37 @@ class _AboutState extends State<_About> {
                     translate('Website'),
                     style: linkStyle,
                   ).marginSymmetric(vertical: 4.0)),
-              Container(
-                decoration: const BoxDecoration(color: Color(0xFF2c8cff)),
-                padding:
-                    const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
-                child: SelectionArea(
-                    child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Copyright © ${DateTime.now().toString().substring(0, 4)} Purslane Tech Pte. Ltd.\n$license',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          Text(
-                            translate('Slogan_tip'),
-                            style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white),
-                          )
-                        ],
+              // ===== [DRX CUSTOM] ===== upstream's blue slab carries its own
+              // company's copyright and its own slogan, neither of which is
+              // this fork's to display.
+              if (!useDrxUi)
+                Container(
+                  decoration: const BoxDecoration(color: Color(0xFF2c8cff)),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
+                  child: SelectionArea(
+                      child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Copyright © ${DateTime.now().toString().substring(0, 4)} Purslane Tech Pte. Ltd.\n$license',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            Text(
+                              translate('Slogan_tip'),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white),
+                            )
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                )),
-              ).marginSymmetric(vertical: 4.0)
+                    ],
+                  )),
+                ).marginSymmetric(vertical: 4.0)
             ],
           ).marginOnly(left: _kContentHMargin)
         ]),
@@ -2563,6 +2618,18 @@ Widget _Card(
     {required String title,
     required List<Widget> children,
     List<Widget>? title_suffix}) {
+  // ===== [DRX CUSTOM] ===== one line repaints all 26 call sites.
+  if (useDrxUi) {
+    return Builder(
+      builder: (context) => drxSettingsCard(
+        context: context,
+        title: title,
+        children: children,
+        titleSuffix: title_suffix,
+        width: _kCardFixedWidth,
+      ),
+    );
+  }
   return Row(
     children: [
       Flexible(
@@ -2643,10 +2710,18 @@ Widget _OptionCheckBox(
     child: Obx(
       () => Row(
         children: [
-          Checkbox(
-                  value: ref.value,
-                  onChanged: enabled && !isOptFixed ? onChanged : null)
-              .marginOnly(right: 5),
+          // ===== [DRX CUSTOM] ===== a switch, not a checkbox: every one of
+          // these rows means on/off, none of them mean "selected".
+          if (useDrxUi)
+            DrxOptionSwitch(
+              value: ref.value,
+              onChanged: enabled && !isOptFixed ? onChanged : null,
+            ).marginOnly(right: 10)
+          else
+            Checkbox(
+                    value: ref.value,
+                    onChanged: enabled && !isOptFixed ? onChanged : null)
+                .marginOnly(right: 5),
           Offstage(
             offstage: !ref.value || checkedIcon == null,
             child: checkedIcon?.marginOnly(right: 5),
