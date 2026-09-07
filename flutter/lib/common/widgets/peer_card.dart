@@ -14,6 +14,7 @@ import '../../models/peer_model.dart';
 // ===== [DRX CUSTOM] ===== see CUSTOM_CONFIG.md
 import '../../drx_brand.dart';
 import '../../drx/widgets/drx_peer_tile.dart';
+import '../../drx/drx_ui.dart';
 import '../../models/platform_model.dart';
 import '../../desktop/widgets/material_mod_popup_menu.dart' as mod_menu;
 import '../../desktop/widgets/popup_menu.dart';
@@ -302,10 +303,27 @@ class _PeerCardState extends State<_PeerCard>
     final name = hideUsernameOnCard == true
         ? peer.hostname
         : '${peer.username}${peer.username.isNotEmpty && peer.hostname.isNotEmpty ? '@' : ''}${peer.hostname}';
+    // ===== [DRX CUSTOM] =====
+    // Upstream leans on `colorScheme.background` for the card's lower strip
+    // and draws no edge at all. On the dark theme that strip happens to differ
+    // from the page behind it, so the card has a visible shape; on the light
+    // theme both resolve to the same tint and the card dissolves into the page.
+    // A hairline and the card surface fix it in both.
+    // A drawn edge does not work here: the card is clipped at
+    // `_cardRadius - _borderWidth` inside a shape of `_cardRadius`, so a side
+    // on the shape shows a sliver of card colour at each corner and reads as a
+    // double outline. A shadow separates it without touching the geometry.
+    final drxShadow = useDrxUi && Theme.of(context).brightness == Brightness.light;
     final child = Card(
-      color: Colors.transparent,
-      elevation: 0,
+      color: useDrxUi ? DrxBrand.cardOf(context) : Colors.transparent,
+      elevation: drxShadow ? 1.5 : 0,
+      shadowColor: Colors.black.withOpacity(0.35),
       margin: EdgeInsets.zero,
+      shape: useDrxUi
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(_cardRadius),
+            )
+          : null,
       // to-do: memory leak here, more investigation needed.
       // Continious rebuilds of `Obx()` will cause memory leak here.
       // The simple demo does not have this issue.
@@ -376,7 +394,9 @@ class _PeerCardState extends State<_PeerCard>
                   ),
                 ),
                 Container(
-                  color: Theme.of(context).colorScheme.background,
+                  color: useDrxUi
+                      ? DrxBrand.cardOf(context)
+                      : Theme.of(context).colorScheme.background,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
