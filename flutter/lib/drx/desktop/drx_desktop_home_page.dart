@@ -36,6 +36,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../common.dart';
 import '../../common/formatter/id_formatter.dart';
@@ -47,6 +48,8 @@ import '../../desktop/pages/desktop_setting_page.dart';
 import '../../drx_brand.dart';
 import '../../models/platform_model.dart';
 import '../../models/server_model.dart';
+import 'drx_permission_guide.dart';
+import '../../utils/multi_window_manager.dart';
 
 /// Width of the sidebar. Upstream's pane is 200 (280 for incoming-only); the
 /// id digits at 23px need 248 before they wrap.
@@ -76,6 +79,18 @@ class _DrxDesktopHomePageState extends State<DrxDesktopHomePage>
   final _svcStopped = false.obs;
   Timer? _updateTimer;
 
+  /// Last error the core reported, shown as a card. Upstream keeps the same
+  /// string on its state and refreshes it from the same 1s timer.
+  String _systemError = '';
+
+  /// Which help card is currently due. Recomputed every tick; the page is only
+  /// rebuilt when it changes, so the timer does not repaint the window once a
+  /// second for nothing.
+  String _helpKey = '';
+
+  /// Which permissions are granted, as a signature the tick compares.
+  String _permissions = '';
+
   @override
   void initState() {
     super.initState();
@@ -87,6 +102,19 @@ class _DrxDesktopHomePageState extends State<DrxDesktopHomePage>
       final stopped = await mainGetBoolOption(kOptionStopService);
       if (stopped != _svcStopped.value) {
         _svcStopped.value = stopped;
+      }
+      final error = await bind.mainGetError();
+      final help = drxHelpCardKey(svcStopped: stopped, systemError: error);
+      final permissions = isMacOS ? drxPermissionSignature() : '';
+      if (mounted &&
+          (error != _systemError ||
+              help != _helpKey ||
+              permissions != _permissions)) {
+        setState(() {
+          _systemError = error;
+          _helpKey = help;
+          _permissions = permissions;
+        });
       }
     });
   }
@@ -107,7 +135,11 @@ class _DrxDesktopHomePageState extends State<DrxDesktopHomePage>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _DrxSidebar(),
+          _DrxSidebar(
+            helpKey: _helpKey,
+            systemError: _systemError,
+            permissions: _permissions,
+          ),
           if (!isIncomingOnly) const Expanded(child: _DrxConnectPane()),
         ],
       ),
@@ -118,7 +150,22 @@ class _DrxDesktopHomePageState extends State<DrxDesktopHomePage>
 // ───────────────────────────────────────────────────────────────── sidebar
 
 class _DrxSidebar extends StatelessWidget {
-  const _DrxSidebar({Key? key}) : super(key: key);
+  const _DrxSidebar({
+    Key? key,
+    required this.helpKey,
+    required this.systemError,
+    required this.permissions,
+  }) : super(key: key);
+
+  /// Which help card to draw, as decided by [drxHelpCardKey].
+  final String helpKey;
+  final String systemError;
+
+  /// Which permissions are granted, from [drxPermissionSignature]. Passed in
+  /// rather than read inside the card: a `const` widget whose inputs never
+  /// change is one Flutter skips rebuilding, so a card that read the binds
+  /// itself would keep showing whatever it found the first time.
+  final String permissions;
 
   @override
   Widget build(BuildContext context) {
@@ -127,7 +174,7 @@ class _DrxSidebar extends StatelessWidget {
     return Container(
       width: _kSidebarWidth,
       decoration: BoxDecoration(
-        color: theme.appBarTheme.backgroundColor ?? theme.cardColor,
+        color: DrxBrand.chromeOf(context),
         border: Border(right: BorderSide(color: border)),
       ),
       padding: const EdgeInsets.fromLTRB(14, 16, 14, 12),
@@ -136,15 +183,32 @@ class _DrxSidebar extends StatelessWidget {
         children: [
           const _DrxBrandRow(),
           const SizedBox(height: 14),
-          // Upstream shows this whenever the build ships a preset password.
-          buildPresetPasswordWarning(),
-          if (!bind.isOutgoingOnly()) ...[
-            const _DrxIdentityCard(),
-            const SizedBox(height: 10),
-            const _DrxServiceCard(),
-            const _DrxPermanentPasswordCard(),
-          ],
-          const Spacer(),
+          // The cards scroll and the footer stays put. How many cards there
+          // are depends on the machine — a missing permission, a preset
+          // password, a Wayland session each add one — so the column cannot
+          // be sized to fit a short window, and a `Spacer` only overflows
+          // when it runs out of room.
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Upstream shows this whenever the build ships a preset
+                  // password.
+                  buildPresetPasswordWarning(),
+                  if (!bind.isOutgoingOnly()) ...[
+                    const _DrxIdentityCard(),
+                    const SizedBox(height: 10),
+                    const _DrxServiceCard(),
+                    const _DrxPermanentPasswordCard(),
+                  ],
+                  if (isMacOS) _DrxPermissionsCard(signature: permissions),
+                  _DrxHelpCard(helpKey: helpKey, systemError: systemError),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
           const _DrxSidebarFooter(),
         ],
       ),
@@ -315,9 +379,8 @@ class _DrxServiceCard extends StatelessWidget {
     return Consumer<ServerModel>(
       builder: (context, model, child) {
         final running = model.isStart;
-        final tint = running
-            ? DrxBrand.successOf(context)
-            : DrxBrand.mutedOf(context);
+        final tint =
+            running ? DrxBrand.successOf(context) : DrxBrand.mutedOf(context);
         return _DrxCard(
           child: Row(
             children: [
@@ -436,6 +499,16 @@ class _DrxSidebarFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final muted = DrxBrand.mutedOf(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildSettingsRow(context, muted),
+      ],
+    );
+  }
+
+  Widget _buildSettingsRow(BuildContext context, Color muted) {
     return Row(
       children: [
         if (!bind.isDisableSettings())
@@ -513,24 +586,27 @@ class _DrxConnectPaneState extends State<_DrxConnectPane> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
-          child: _buildConnectBar(context),
-        ),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(left: 12, right: 4),
-            child: PeerTabPage(),
+    return Container(
+      color: DrxBrand.groundOf(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
+            child: _buildConnectBar(context),
           ),
-        ),
-        if (!bind.isOutgoingOnly()) ...[
-          const Divider(height: 1),
-          OnlineStatusWidget(),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 12, right: 4),
+              child: PeerTabPage(),
+            ),
+          ),
+          if (!bind.isOutgoingOnly()) ...[
+            const Divider(height: 1),
+            OnlineStatusWidget(),
+          ],
         ],
-      ],
+      ),
     );
   }
 
@@ -550,15 +626,24 @@ class _DrxConnectPaneState extends State<_DrxConnectPane> {
             ),
           ),
           const SizedBox(height: 9),
-          // The window opens at 800px wide, which leaves this pane 552. Below
-          // ~470 the secondary session kinds are dropped rather than allowed
-          // to squeeze the id field: the field is what the row is for.
+          // Two limits, at the two ends of the range this row has to survive.
+          // Below ~470 the secondary session kinds are dropped rather than
+          // allowed to squeeze the id field: the field is what the row is for.
+          // Above ~880 the row stops growing — an id is nine digits, and a
+          // field stretched across a 1900px screen to hold them reads as a
+          // mistake.
           LayoutBuilder(
             builder: (context, constraints) {
               final wide = constraints.maxWidth >= 470;
               return Row(
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  Expanded(child: _buildIdField(context)),
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 520),
+                      child: _buildIdField(context),
+                    ),
+                  ),
                   const SizedBox(width: 10),
                   _DrxConnectButton(onPressed: () => _connect()),
                   if (wide) ...[
@@ -603,7 +688,7 @@ class _DrxConnectPaneState extends State<_DrxConnectPane> {
     return Container(
       height: 44,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.background,
+        color: DrxBrand.groundOf(context),
         borderRadius: BorderRadius.circular(_kControlRadius),
         border: Border.all(color: MyTheme.color(context).border ?? Colors.grey),
       ),
@@ -665,7 +750,7 @@ class _DrxCard extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: DrxBrand.cardOf(context),
         borderRadius: BorderRadius.circular(_kCardRadius),
         border: Border.all(
           color: accent ?? MyTheme.color(context).border ?? Colors.grey,
@@ -729,10 +814,7 @@ class _DrxMiniAction extends StatelessWidget {
           margin: const EdgeInsets.only(left: 4),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
-            color: filled
-                ? MyTheme.color(context).highlight ??
-                    Theme.of(context).colorScheme.background
-                : null,
+            color: filled ? DrxBrand.groundOf(context) : null,
           ),
           alignment: Alignment.center,
           child: Icon(icon, size: 13, color: DrxBrand.mutedOf(context)),
@@ -831,6 +913,503 @@ class _DrxSessionKindButton extends StatelessWidget {
           ),
           alignment: Alignment.center,
           child: Icon(icon, size: 18, color: DrxBrand.mutedOf(context)),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────── help cards
+
+// The card that asks the user to fix something before this machine can be
+// reached: a macOS permission, a Windows installation, a Linux display-server
+// caveat. Upstream builds these in `_DesktopHomePageState.buildHelpCards`.
+//
+// The CONDITIONS below are upstream's, call for call — `mainIsCanScreenRecording`
+// before `mainIsProcessTrusted` before `mainIsCanInputMonitoring`, one card at a
+// time, in that order — because that order is the order macOS itself wants the
+// permissions granted in. Only the drawing is this fork's.
+//
+// Two of upstream's cards are deliberately not here:
+//   * the "new version available" banner, which is guarded by
+//     `!bind.isCustomClient()` and can never show in this fork;
+//   * the Quit button for incoming-only builds, which belongs to that build's
+//     very different single-pane layout.
+
+/// Keys for the help cards, in the order upstream checks them.
+const String _kHelpNone = '';
+const String _kHelpSystemError = 'system-error';
+const String _kHelpWinInstall = 'win-install';
+const String _kHelpWinUpgrade = 'win-upgrade';
+const String _kHelpMacDaemon = 'mac-daemon';
+const String _kHelpLinuxSelinux = 'linux-selinux';
+const String _kHelpLinuxWayland = 'linux-wayland';
+const String _kHelpLinuxWaylandLogin = 'linux-wayland-login';
+
+/// Local option upstream uses to let the user dismiss the SELinux tip.
+const String _kShowSelinuxHelpTip = 'show-selinux-help-tip';
+
+/// Decides which help card is due, or [_kHelpNone].
+///
+/// Pure and synchronous so the 1s timer can call it and compare the result
+/// with the last one; every bind below is a sync FFI read.
+String drxHelpCardKey({required bool svcStopped, required String systemError}) {
+  if (systemError.isNotEmpty) return _kHelpSystemError;
+
+  final isOutgoingOnly = bind.isOutgoingOnly();
+
+  if (isWindows && !bind.isDisableInstallation()) {
+    if (!bind.mainIsInstalled()) return _kHelpWinInstall;
+    if (bind.mainIsInstalledLowerVersion()) return _kHelpWinUpgrade;
+  } else if (isMacOS) {
+    // The three permissions are gone from here: they have a card of their own
+    // that shows all three at once instead of one at a time. This is what is
+    // left of upstream's macOS branch.
+    if (!isOutgoingOnly &&
+        !svcStopped &&
+        bind.mainIsInstalled() &&
+        !bind.mainIsInstalledDaemon(prompt: false)) {
+      return _kHelpMacDaemon;
+    }
+  } else if (isLinux && !isOutgoingOnly) {
+    if (bind.isSelinuxEnforcing() &&
+        bind.mainGetLocalOption(key: _kShowSelinuxHelpTip) != 'N') {
+      return _kHelpLinuxSelinux;
+    }
+    if (bind.mainCurrentIsWayland()) return _kHelpLinuxWayland;
+    if (bind.mainIsLoginWayland()) return _kHelpLinuxWaylandLogin;
+  }
+  return _kHelpNone;
+}
+
+class _DrxHelpCard extends StatelessWidget {
+  const _DrxHelpCard({
+    Key? key,
+    required this.helpKey,
+    required this.systemError,
+  }) : super(key: key);
+
+  final String helpKey;
+  final String systemError;
+
+  @override
+  Widget build(BuildContext context) {
+    switch (helpKey) {
+      case _kHelpSystemError:
+        return _card(context, title: translate('Status'), body: systemError);
+
+      case _kHelpWinInstall:
+        return _card(
+          context,
+          title: translate('Install'),
+          body: bind.isOutgoingOnly() ? '' : translate('install_tip'),
+          action: translate('Install'),
+          onAction: () async {
+            await rustDeskWinManager.closeAllSubWindows();
+            bind.mainGotoInstall();
+          },
+        );
+
+      case _kHelpWinUpgrade:
+        return _card(
+          context,
+          title: translate('Status'),
+          body: translate('Your installation is lower version.'),
+          action: translate('Click to upgrade'),
+          onAction: () async {
+            await rustDeskWinManager.closeAllSubWindows();
+            bind.mainUpdateMe();
+          },
+        );
+
+      case _kHelpMacDaemon:
+        return _card(
+          context,
+          title: translate('Install'),
+          body: translate('install_daemon_tip'),
+          action: translate('Install'),
+          onAction: () => bind.mainIsInstalledDaemon(prompt: true),
+        );
+
+      case _kHelpLinuxSelinux:
+        return _card(
+          context,
+          title: translate('Warning'),
+          body: translate('selinux_tip'),
+          helpLink:
+              'https://rustdesk.com/docs/en/client/linux/#permissions-issue',
+          onDismiss: () =>
+              bind.mainSetLocalOption(key: _kShowSelinuxHelpTip, value: 'N'),
+        );
+
+      case _kHelpLinuxWayland:
+        return _card(
+          context,
+          title: translate('Warning'),
+          body: translate('wayland_experiment_tip'),
+          helpLink: 'https://rustdesk.com/docs/en/client/linux/#x11-required',
+        );
+
+      case _kHelpLinuxWaylandLogin:
+        return _card(
+          context,
+          title: translate('Warning'),
+          body: translate('Login screen using Wayland is not supported'),
+          helpLink: 'https://rustdesk.com/docs/en/client/linux/#login-screen',
+        );
+
+      default:
+        return const Offstage();
+    }
+  }
+
+  Widget _card(
+    BuildContext context, {
+    required String title,
+    required String body,
+    String? action,
+    VoidCallback? onAction,
+    String? helpLink,
+    VoidCallback? onDismiss,
+  }) {
+    final warning = DrxBrand.warningOf(context);
+    final muted = DrxBrand.mutedOf(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: _DrxCard(
+        accent: warning,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, size: 16, color: warning),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                if (onDismiss != null)
+                  _DrxMiniAction(
+                    icon: Icons.close,
+                    tooltip: translate('Close'),
+                    onPressed: onDismiss,
+                  ),
+              ],
+            ),
+            if (body.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6, left: 25),
+                child: Text(
+                  body,
+                  style: TextStyle(fontSize: 11, height: 1.4, color: muted),
+                ),
+              ),
+            const SizedBox(height: 10),
+            // Stacked, not laid side by side: three actions never fit one
+            // 248px line, and wrapping them left the primary action alone on
+            // a second row looking like an afterthought. Full-width rows also
+            // survive a translation of any length.
+            if (action != null)
+              _DrxCardAction(
+                label: action,
+                onPressed: onAction,
+                primary: true,
+              ),
+            if (helpLink != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Center(
+                  child: InkWell(
+                    onTap: () => launchUrl(Uri.parse(helpLink)),
+                    child: Text(
+                      translate('Help'),
+                      style: TextStyle(fontSize: 11.5, color: muted),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A full-width action inside a help card. [primary] fills it in the action
+/// blue; the rest are outlined, so a card can carry more than one without two
+/// buttons competing to be pressed.
+class _DrxCardAction extends StatelessWidget {
+  const _DrxCardAction({
+    Key? key,
+    required this.label,
+    required this.onPressed,
+    this.primary = false,
+  }) : super(key: key);
+
+  final String label;
+  final VoidCallback? onPressed;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = DrxBrand.accentOf(context);
+    return InkWell(
+      borderRadius: BorderRadius.circular(9),
+      onTap: onPressed,
+      child: Container(
+        height: 30,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(9),
+          color: primary ? accent.withOpacity(0.14) : null,
+          border: Border.all(
+            color: primary
+                ? accent.withOpacity(0.55)
+                : MyTheme.color(context).border ?? Colors.grey,
+          ),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: primary ? FontWeight.w600 : FontWeight.w500,
+            color: primary ? accent : DrxBrand.mutedOf(context),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────── permissions card
+
+/// All three macOS permissions in one card: what is granted, and what to do
+/// about what is not.
+///
+/// It replaces two things upstream and this fork had separately — a help card
+/// that named ONE missing permission at a time, and a menu at the foot of the
+/// sidebar that listed all three. Neither answered the whole question on its
+/// own: the card never said what was already granted, and the menu never said
+/// anything was wrong.
+///
+/// The card stays after everything is granted, collapsed to its header. That
+/// is deliberate: a permission can be revoked in System Settings at any time,
+/// and the moment a user wants to check or change one is exactly the moment
+/// upstream's card has disappeared.
+class _DrxPermissionsCard extends StatefulWidget {
+  const _DrxPermissionsCard({Key? key, required this.signature})
+      : super(key: key);
+
+  /// Not read — it is what makes this widget differ from the last one, so the
+  /// card rebuilds when a permission is granted or revoked.
+  final String signature;
+
+  @override
+  State<_DrxPermissionsCard> createState() => _DrxPermissionsCardState();
+}
+
+class _DrxPermissionsCardState extends State<_DrxPermissionsCard> {
+  /// Null until the user opens or closes it by hand; before that the card
+  /// opens itself when something is missing and stays shut when nothing is.
+  bool? _open;
+
+  @override
+  Widget build(BuildContext context) {
+    final missing =
+        DrxPermission.all.where((p) => !p.granted).toList(growable: false);
+    final allGranted = missing.isEmpty;
+    final open = _open ?? !allGranted;
+    final warning = DrxBrand.warningOf(context);
+    final muted = DrxBrand.mutedOf(context);
+    final tint = allGranted ? DrxBrand.successOf(context) : warning;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: _DrxCard(
+        accent: allGranted ? null : warning,
+        padding: const EdgeInsets.fromLTRB(13, 11, 13, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            InkWell(
+              onTap: () => setState(() => _open = !open),
+              child: Row(
+                children: [
+                  Icon(
+                    allGranted ? Icons.verified_user : Icons.gpp_maybe,
+                    size: 16,
+                    color: tint,
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      translate('Permissions'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Text(
+                    allGranted
+                        ? translate('All granted')
+                        : translate('{${missing.length}} missing'),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: tint,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    open ? Icons.expand_more : Icons.chevron_right,
+                    size: 15,
+                    color: muted,
+                  ),
+                ],
+              ),
+            ),
+            if (open) ...[
+              const SizedBox(height: 4),
+              ...DrxPermission.all.map((p) => _buildRow(context, p)),
+              const SizedBox(height: 7),
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: MyTheme.color(context).border,
+              ),
+              InkWell(
+                // The guide opens on the first missing permission, or on the
+                // first one of the three when there is nothing to fix and the
+                // user is only reading.
+                onTap: () => showDrxPermissionGuide(
+                  context,
+                  missing.isEmpty ? DrxPermission.all.first : missing.first,
+                ),
+                child: SizedBox(
+                  height: 30,
+                  child: Row(
+                    children: [
+                      Icon(Icons.help_outline, size: 15, color: muted),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Text(
+                          translate('How to grant permissions'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11.5, color: muted),
+                        ),
+                      ),
+                      Icon(Icons.chevron_right, size: 15, color: muted),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRow(BuildContext context, DrxPermission permission) {
+    final granted = permission.granted;
+    final muted = DrxBrand.mutedOf(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(
+              granted ? Icons.check_circle_outline : Icons.error_outline,
+              size: 15,
+              color: granted
+                  ? DrxBrand.successOf(context)
+                  : DrxBrand.warningOf(context),
+            ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  permission.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    // A granted row is settled, so it goes quiet and the eye
+                    // lands on the ones still to do.
+                    color: granted
+                        ? muted
+                        : Theme.of(context).textTheme.titleLarge?.color,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  permission.description,
+                  style: TextStyle(fontSize: 10, height: 1.3, color: muted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (!granted)
+            _DrxEnableButton(
+              onPressed: () {
+                // Ask the system first: on a machine that has never been asked
+                // this is one click and done. The guide is for the machines
+                // where that prompt no longer appears.
+                permission.prompt();
+                showDrxPermissionGuide(context, permission);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DrxEnableButton extends StatelessWidget {
+  const _DrxEnableButton({Key? key, required this.onPressed}) : super(key: key);
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = DrxBrand.accentOf(context);
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onPressed,
+      child: Container(
+        height: 24,
+        padding: const EdgeInsets.symmetric(horizontal: 11),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: accent.withOpacity(0.14),
+          border: Border.all(color: accent.withOpacity(0.55)),
+        ),
+        child: Text(
+          translate('Enable'),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: accent,
+          ),
         ),
       ),
     );
